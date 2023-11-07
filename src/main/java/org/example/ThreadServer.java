@@ -3,15 +3,18 @@ package org.example;
 import java.io.IOException;
 import java.net.ServerSocket;
 
-public abstract class ThreadServer {
+public abstract class ThreadServer extends Thread
+{
     protected int port;
-    protected ServerSocket ssocket;
+    protected Protocole protocole;
     protected Logger logger;
-
-    public ThreadServer(int port, Logger logger) throws IOException {
+    protected ServerSocket ssocket;
+    public ThreadServer(int port, Protocole protocole, Logger logger) throws IOException
+    {
+        super("TH Serveur (port=" + port + ",protocole=" + protocole.getNom() + ")");
         this.port = port;
-        ssocket = new ServerSocket(port);
+        this.protocole = protocole;
         this.logger = logger;
+        ssocket = new ServerSocket(port);
     }
-
 }
