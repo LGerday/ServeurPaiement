@@ -14,8 +14,7 @@ public abstract class ThreadServer extends Thread
     protected ServerSocket ssocket;
     public ThreadServer(int port, Protocole protocole, Logger logger) throws IOException
     {
-        //super("TH Serveur (port=" + port + ",protocole=" + protocole.getNom() + ")");
-        super("TH Serveur (port=" + port + ",protocole= ");
+        super("TH Serveur (port=" + port + ",protocole=" + protocole.getNom() + ")");
         this.port = port;
         this.protocole = protocole;
         this.logger = logger;

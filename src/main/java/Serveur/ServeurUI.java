@@ -1,6 +1,8 @@
 package Serveur;
 
 import Serveur.Protocole.Logger;
+import Serveur.Protocole.Protocole;
+import Serveur.Protocole.VESPAP;
 
 import javax.swing.*;
 import java.awt.*;
@@ -13,7 +15,6 @@ import javax.swing.table.DefaultTableModel;
 public class ServeurUI extends JFrame implements Logger {
 
 
-    Logger log;
     ThreadServerPool Server;
     private JButton startButton;
     private JButton stopButton;
@@ -58,12 +59,14 @@ public class ServeurUI extends JFrame implements Logger {
             public void actionPerformed(ActionEvent e) {
 
                 // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Démarrer le serveur"});
+                Protocole VESPAP = new Serveur.Protocole.VESPAP(ServeurUI.this);
                 try {
-                    Server = new ThreadServerPool(50000,null,10,log);
+                    Server = new ThreadServerPool(50000,VESPAP,10,ServeurUI.this);
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }
                 Server.start();
+                System.out.println("Server Starting");
 
             }
         });
@@ -75,6 +78,7 @@ public class ServeurUI extends JFrame implements Logger {
                 // Insérez votre code d'arrêt du serveur ici
                 // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Arrêter le serveur"});
                 Server.interrupt();
+                System.out.println("Server Stoping");
             }
         });
 
