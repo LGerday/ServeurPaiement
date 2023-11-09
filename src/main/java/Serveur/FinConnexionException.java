@@ -1,4 +1,4 @@
-package org.example;
+package Serveur;
 
 public class FinConnexionException extends Exception{
 

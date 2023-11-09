@@ -1,4 +1,5 @@
-package org.example;
+package Serveur;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;

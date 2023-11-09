@@ -1,4 +1,8 @@
-package org.example;
+package Client;
+
+import Serveur.FileAttente;
+import Serveur.Logger;
+import Serveur.Protocole;
 
 import java.io.IOException;
 

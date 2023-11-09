@@ -1,4 +1,6 @@
-package org.example;
+package Serveur;
+import Client.ThreadClientPool;
+
 import java.io.IOException;
 import java.net.*;
 public class ThreadServerPool extends ThreadServer {
