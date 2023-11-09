@@ -1,5 +1,7 @@
 package Serveur;
 
+import Serveur.Protocole.Reponse;
+
 public class FinConnexionException extends Exception{
 
     private Reponse reponse;

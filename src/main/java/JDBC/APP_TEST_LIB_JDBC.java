@@ -147,8 +147,7 @@ public class APP_TEST_LIB_JDBC extends javax.swing.JFrame {
     }// </editor-fold>
 
     private void jButtonConnecterActionPerformed(java.awt.event.ActionEvent evt) {
-        if(jRadioButtonOracle.isSelected()) bean = new BeanJDBC(1); //connexion oracle, envoie type
-        else if (jRadioButtonMySQL.isSelected()) bean = new BeanJDBC(2); //connexion Mysql, envoie type
+         bean = new BeanJDBC(); //connexion Mysql, envoie type
         this.setVisible(false);
         jFrame1.setVisible(true);
 
@@ -161,7 +160,7 @@ public class APP_TEST_LIB_JDBC extends javax.swing.JFrame {
         if(index == 0)
         {
             try {
-                bean.setQuery("Select * from Voyageurs"); // On lui donne la requête au préalable
+                bean.setQuery("Select * from clients"); // On lui donne la requête au préalable
                 Thread thread = new Thread(bean); // On crée un thread par dessus
                 thread.start(); // On lance le thread qui lance la méthode run de bean
                 thread.join(); // On attend la fin du thread pour avoir des résultats aussi non c'est trop rapide rs=null

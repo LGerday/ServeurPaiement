@@ -12,25 +12,8 @@ public class BeanJDBC implements Runnable
     private int RU;
 
     // Pour la connection
-    public BeanJDBC(int type)
+    public BeanJDBC()
     {
-        if(type==1)
-        {
-            try
-            {
-                System.out.println("Essai de connexion JDBC");
-                Class leDriver = Class.forName("oracle.jdbc.driver.OracleDriver");
-
-                con = DriverManager.getConnection("jdbc:oracle:thin:@localhost:1521/orcl", "rti", "oracle");
-                System.out.println("Connexion à la BDD sys réalisée");
-            }
-            catch(Exception e)
-            {
-                System.out.println(e.getMessage());
-            }
-        }
-        else if(type==2)
-        {
             try
             {
                 System.out.println("Essai de connexion JDBC");
@@ -38,14 +21,14 @@ public class BeanJDBC implements Runnable
 
                 // reprenons les choses sérieuses
 
-                con = DriverManager.getConnection("jdbc:mysql://localhost:50000/db_holidays","root","oracle");
+                con = DriverManager.getConnection("jdbc:mysql://192.168.0.107:3306/PourStudent","Student","PassStudent1_");
                 System.out.println("Connexion à la BDD sys réalisée");
             }
             catch(Exception e)
             {
                 System.out.println(e.getMessage());
             }
-        }
+
     }
 
     @Override

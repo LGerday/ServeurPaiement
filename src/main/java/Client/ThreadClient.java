@@ -1,6 +1,10 @@
 package Client;
 
 import Serveur.*;
+import Serveur.Protocole.Logger;
+import Serveur.Protocole.Protocole;
+import Serveur.Protocole.Reponse;
+import Serveur.Protocole.Requete;
 
 import java.io.*;
 import java.net.Socket;

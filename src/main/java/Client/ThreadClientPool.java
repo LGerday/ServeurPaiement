@@ -1,8 +1,8 @@
 package Client;
 
 import Serveur.FileAttente;
-import Serveur.Logger;
-import Serveur.Protocole;
+import Serveur.Protocole.Logger;
+import Serveur.Protocole.Protocole;
 
 import java.io.IOException;
 

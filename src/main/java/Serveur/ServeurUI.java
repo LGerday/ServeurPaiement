@@ -1,5 +1,7 @@
 package Serveur;
 
+import Serveur.Protocole.Logger;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
