@@ -21,7 +21,7 @@ public class BeanJDBC implements Runnable
 
                 // reprenons les choses sérieuses
 
-                con = DriverManager.getConnection("jdbc:mysql://192.168.0.101/PourStudent","root","ekip");
+                con = DriverManager.getConnection("jdbc:mysql://10.59.22.28/PourStudent","Student","PassStudent1_");
                 System.out.println("Connexion à la BDD sys réalisée");
             }
             catch(Exception e)

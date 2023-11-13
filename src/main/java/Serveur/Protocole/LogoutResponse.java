@@ -1,6 +1,6 @@
 package Serveur.Protocole;
 
-public class LogoutResponse implements Requete{
+public class LogoutResponse implements Reponse{
 
     private boolean valide;
 

@@ -31,7 +31,9 @@ public class ClientPaiementUI extends JFrame {
 
     public ClientPaiementUI() throws IOException {
         super("ClientPaiementUI");
-        socket = new Socket("192.168.0.105",50000);
+        socket = new Socket("10.59.22.20",50000);
+        oos = new ObjectOutputStream(socket.getOutputStream());
+        ois = new ObjectInputStream(socket.getInputStream());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
 
@@ -92,15 +94,27 @@ public class ClientPaiementUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Effectue les opérations de logout ici
-                // Par exemple, ferme la connexion, réinitialise les champs, etc.
-                // Pour l'instant, je vais simplement désactiver le bouton "Logout"
-                logoutButton.setEnabled(false);
-
-                // Rend le bouton "Login" cliquable
-                loginButton.setEnabled(true);
-
-                // Rend le bouton "Payer" non cliquable
-                paymentButton.setEnabled(false);
+                try {
+                    LogoutRequete requete = new LogoutRequete(usernameField.getText());
+                    oos.writeObject(requete);
+                    LogoutResponse reponse = (LogoutResponse) ois.readObject();
+                    System.out.println("Test Avant reponse");
+                    if (reponse.getValide()) {
+                        System.out.println("Logout Valide");
+                        // Rend le bouton "Logout" cliquable
+                        logoutButton.setEnabled(false);
+                        // Rend le bouton "Login" non cliquable
+                        loginButton.setEnabled(true);
+                        // Rend le bouton "Payer" cliquable
+                        paymentButton.setEnabled(false);
+                        usernameField.setText("");
+                        passwordField.setText("");
+                    } else {
+                        System.out.println("Logout pas valide");
+                    }
+                } catch (IOException | ClassNotFoundException ex) {
+                    throw new RuntimeException(ex);
+                }
             }
         });
 
@@ -111,8 +125,6 @@ public class ClientPaiementUI extends JFrame {
                     char[] passwordChars = passwordField.getPassword();
                     String password = new String(passwordChars);
                     LoginRequete requete = new LoginRequete(usernameField.getText(),password);
-                    oos = new ObjectOutputStream(socket.getOutputStream());
-                    ois = new ObjectInputStream(socket.getInputStream());
                     oos.writeObject(requete);
                     LoginResponse reponse = (LoginResponse) ois.readObject();
                     System.out.println("Test Avant reponse");
@@ -142,6 +154,7 @@ public class ClientPaiementUI extends JFrame {
 
         DefaultTableModel tableModel = new DefaultTableModel();
         tableModel.addColumn("IdFacture");
+        tableModel.addColumn("IdClient");
         tableModel.addColumn("Date");
         tableModel.addColumn("Montant");
 
@@ -173,18 +186,51 @@ public class ClientPaiementUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Ajoute le code pour effectuer le paiement ici
-                System.out.println("Paiement effectué !");
+                String tmp;
+                int idFacture = -1;
+                try{
+
+                    String Card = cardNumberField.getText();
+                    if(Card.length() > 8)
+                    {
+                        int selectedRow = table.getSelectedRow();
+                        if (selectedRow != -1) {
+                            // Vous avez une ligne sélectionnée, vous pouvez accéder aux données de cette ligne ici
+                            tmp = (String) table.getValueAt(selectedRow, 0);
+                            idFacture = Integer.parseInt(tmp);
+                            System.out.println(idFacture);
+                        }
+                        System.out.println(idFacture);
+                        PayeRequete requete = new PayeRequete(cardNumberField.getText(),nameField.getText(),idFacture);
+                        oos.writeObject(requete);
+                        PayeResponse reponse = (PayeResponse) ois.readObject();
+                        if(reponse.IsCardValide())
+                        {
+                            createDialoge("Carte Valide !","Carte");
+
+
+                        }
+                        else
+                            createDialoge("Carte invalide !","Carte");
+                    }
+                    else{
+                        createDialoge("Carte doit comprendre 10 numero !","Carte");
+                    }
+                }
+                catch (Exception ex){
+                    throw new RuntimeException(ex);
+                }
             }
         });
         actualiserButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                tableModel.setRowCount(0);
                 try {
                     int id = Integer.parseInt(idField.getText());
-                    String Card = cardNumberField.getText();
+
                     FactureRequete requete = new FactureRequete(id);
-                    oos = new ObjectOutputStream(socket.getOutputStream());
-                    ois = new ObjectInputStream(socket.getInputStream());
                     oos.writeObject(requete);
                     FactureResponse reponse = (FactureResponse) ois.readObject();
                     System.out.println("Test Avant reponse");
@@ -192,7 +238,7 @@ public class ClientPaiementUI extends JFrame {
                         System.out.println("Il y a " + reponse.getTaille()+ "Facture impayé");
                         for(int i = 0; i < reponse.getTaille();i++){
                             Facture fac = reponse.Factures.get(i);
-                            ajouterFactureDataGrid(fac.getId(),fac.getDate(),fac.getMontant());
+                            ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
                         }
                     } else {
                         System.out.println("Aucune facture impayé");
@@ -209,10 +255,10 @@ public class ClientPaiementUI extends JFrame {
     public static void main(String[] args) throws IOException {
         ClientPaiementUI clientPaiementUI = new ClientPaiementUI();
     }
-    public void ajouterFactureDataGrid(String id, Date date, double montant)
+    public void ajouterFactureDataGrid(String id,String idClient, Date date, double montant)
     {
         DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
-        Object[] nouvelleLigne = {id, date, montant};
+        Object[] nouvelleLigne = {id,idClient, date, montant};
         tableModel.addRow(nouvelleLigne);
 
     }
@@ -220,28 +266,5 @@ public class ClientPaiementUI extends JFrame {
     {
         JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE);
     }
-    public boolean checkLuhn(String cardNo)
-    {
-        int nDigits = cardNo.length();
 
-        int nSum = 0;
-        boolean isSecond = false;
-        for (int i = nDigits - 1; i >= 0; i--)
-        {
-
-            int d = cardNo.charAt(i) - '0';
-
-            if (isSecond)
-                d = d * 2;
-
-            // We add two digits to handle
-            // cases that make two digits
-            // after doubling
-            nSum += d / 10;
-            nSum += d % 10;
-
-            isSecond = !isSecond;
-        }
-        return (nSum % 10 == 0);
-    }
 }

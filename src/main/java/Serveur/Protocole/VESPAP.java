@@ -33,7 +33,10 @@ public class VESPAP implements Protocole{
         if (requete instanceof FactureRequete) {
             return TraiteRequeteFACTURE((FactureRequete) requete, socket);
         }
-
+        if( requete instanceof PayeRequete)
+            return TraiteRequetePaye((PayeRequete) requete,socket);
+        if(requete instanceof LogoutRequete)
+            return TraiteRequeteLOGOUT((LogoutRequete) requete,socket);
 
         return null;
     }
@@ -77,9 +80,16 @@ public class VESPAP implements Protocole{
         logger.Trace(requete.getLogin() + " --> erreur de login");
         throw new FinConnexionException(new LoginResponse(false));
     }
+
+    private synchronized LogoutResponse TraiteRequeteLOGOUT(LogoutRequete requete, Socket socket) throws FinConnexionException {
+        logger.Trace("RequeteLOGOUT reçue de " + requete.getMsg());
+        LogoutResponse rep = new LogoutResponse(true);
+
+        return rep;
+    }
     private synchronized FactureResponse TraiteRequeteFACTURE(FactureRequete requete, Socket socket) throws FinConnexionException {
         logger.Trace("RequeteFacture reçue de " + requete.getIdClient());
-        String query = "select * from factures where idClient = '" + requete.getIdClient()+"'";
+        String query = "select * from factures where idClient = '" + requete.getIdClient()+"' AND paye = '0'";
         FactureResponse rep = new FactureResponse();
         try {
             bean.execute(query);
@@ -89,13 +99,14 @@ public class VESPAP implements Protocole{
             if (rs != null) {
                 while (rs.next()) {
                     // Récupère les colonnes par leur nom (ajuste les noms selon ta structure de base de données)
-                    int idFacture = rs.getInt("idFacture");
+                    int idFacture = rs.getInt("ID");
+                    int idClient = rs.getInt("idClient");
                     Date sqlDate = rs.getDate("date");
                     Double montant = rs.getDouble("montant");
 
                     // Affiche les résultats
                     System.out.println("ID: " + idFacture + ", Date: " + sqlDate + ", montant: " + montant);
-                    rep.Factures.add(new Facture(idFacture,sqlDate,montant));
+                    rep.Factures.add(new Facture(idFacture,idClient,sqlDate,montant));
                 }
             } else {
                 // Gère le cas où rs est null
@@ -109,6 +120,48 @@ public class VESPAP implements Protocole{
         return rep;
 
     }
+    private synchronized PayeResponse TraiteRequetePaye(PayeRequete requete, Socket socket) throws FinConnexionException {
+        logger.Trace("RequetePaye reçue  ");
+        PayeResponse rep = new PayeResponse(checkLuhn(requete.getCardNumber()));
+        if(checkLuhn(requete.getCardNumber())){
+            rep.setCardError("Carte Valide");
+            System.out.println("Num Factures : "+requete.getFacture());
+            String query = "update factures set paye = '1' WHERE ID = '"+requete.getFacture()+"'";
+            System.out.println(query);
+            try{
+                bean.execute(query);
+            }
+            catch (Exception ex)
+            {
+                ex.printStackTrace();
+            }
+        }
+        else
+            rep.setCardError("Numero de carte invalide");
+        return rep;
+    }
+    public boolean checkLuhn(String cardNo)
+    {
+        int nDigits = cardNo.length();
 
+        int nSum = 0;
+        boolean isSecond = false;
+        for (int i = nDigits - 1; i >= 0; i--)
+        {
 
+            int d = cardNo.charAt(i) - '0';
+
+            if (isSecond)
+                d = d * 2;
+
+            // We add two digits to handle
+            // cases that make two digits
+            // after doubling
+            nSum += d / 10;
+            nSum += d % 10;
+
+            isSecond = !isSecond;
+        }
+        return (nSum % 10 == 0);
+    }
 }
