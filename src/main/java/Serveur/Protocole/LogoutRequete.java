@@ -2,15 +2,15 @@ package Serveur.Protocole;
 
 public class LogoutRequete implements Requete{
 
-    String msg;
+    String username;
 
     public LogoutRequete(String msg){
 
-        this.msg = msg;
+        this.username = msg;
 
     }
 
     public String getMsg(){
-        return msg;
+        return username;
     }
 }

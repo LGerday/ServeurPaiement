@@ -8,6 +8,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.Vector;
 import javax.swing.table.DefaultTableModel;
@@ -57,11 +59,28 @@ public class ServeurUI extends JFrame implements Logger {
         startButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-
+                int port = 0;
+                int thread = 0;
                 // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Démarrer le serveur"});
                 Protocole VESPAP = new Serveur.Protocole.VESPAP(ServeurUI.this);
+                try (BufferedReader lecteur = new BufferedReader(new FileReader("src/main/java/Serveur/properties.conf"))) {
+
+                    System.out.println("Reading conf file");
+                    String tmp = lecteur.readLine();
+                    String[] tmp2 = tmp.split("=");
+                    port = Integer.parseInt(tmp2[1]);
+                    tmp = lecteur.readLine();
+                    tmp2 = tmp.split("=");
+                    thread = Integer.parseInt(tmp2[1]);
+
+                    System.out.println(" Port : "+ port + " Nombre Thread : "+ thread);
+
+                }
+                catch (IOException ex){
+                    ex.printStackTrace();
+                }
                 try {
-                    Server = new ThreadServerPool(50000,VESPAP,10,ServeurUI.this);
+                    Server = new ThreadServerPool(port,VESPAP,thread,ServeurUI.this);
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }

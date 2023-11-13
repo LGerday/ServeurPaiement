@@ -78,11 +78,11 @@ public class VESPAP implements Protocole{
                 return new LoginResponse(true);
             }
         logger.Trace(requete.getLogin() + " --> erreur de login");
-        throw new FinConnexionException(new LoginResponse(false));
+        return new LoginResponse(false);
     }
 
     private synchronized LogoutResponse TraiteRequeteLOGOUT(LogoutRequete requete, Socket socket) throws FinConnexionException {
-        logger.Trace("RequeteLOGOUT reçue de " + requete.getMsg());
+        logger.Trace("RequeteLOGOUT reçue");
         LogoutResponse rep = new LogoutResponse(true);
 
         return rep;
@@ -99,7 +99,8 @@ public class VESPAP implements Protocole{
             if (rs != null) {
                 while (rs.next()) {
                     // Récupère les colonnes par leur nom (ajuste les noms selon ta structure de base de données)
-                    int idFacture = rs.getInt("ID");
+                    //int idFacture = rs.getInt("ID");
+                    int idFacture = rs.getInt("idFacture");
                     int idClient = rs.getInt("idClient");
                     Date sqlDate = rs.getDate("date");
                     Double montant = rs.getDouble("montant");
@@ -121,12 +122,13 @@ public class VESPAP implements Protocole{
 
     }
     private synchronized PayeResponse TraiteRequetePaye(PayeRequete requete, Socket socket) throws FinConnexionException {
-        logger.Trace("RequetePaye reçue  ");
+        logger.Trace("RequetePaye reçue de "+requete.getName());
         PayeResponse rep = new PayeResponse(checkLuhn(requete.getCardNumber()));
         if(checkLuhn(requete.getCardNumber())){
             rep.setCardError("Carte Valide");
             System.out.println("Num Factures : "+requete.getFacture());
-            String query = "update factures set paye = '1' WHERE ID = '"+requete.getFacture()+"'";
+            //String query = "update factures set paye = '1' WHERE ID = '"+requete.getFacture()+"'";
+            String query = "update factures set paye = '1' WHERE idFacture = '"+requete.getFacture()+"'";
             System.out.println(query);
             try{
                 bean.execute(query);
@@ -136,8 +138,9 @@ public class VESPAP implements Protocole{
                 ex.printStackTrace();
             }
         }
-        else
+        else {
             rep.setCardError("Numero de carte invalide");
+        }
         return rep;
     }
     public boolean checkLuhn(String cardNo)
