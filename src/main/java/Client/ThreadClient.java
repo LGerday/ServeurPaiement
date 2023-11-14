@@ -57,7 +57,7 @@ public abstract class ThreadClient extends Thread
                     oos.writeObject(ex.getReponse());
             }
         }
-        catch (IOException ex) { logger.Trace("Erreur I/O"); }
+        catch (IOException ex) { logger.Trace("Client disconnect"); }
         catch (ClassNotFoundException ex) { logger.Trace("Erreur requete invalide");}
         finally
         {

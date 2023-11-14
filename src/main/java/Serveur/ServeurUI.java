@@ -59,21 +59,21 @@ public class ServeurUI extends JFrame implements Logger {
         startButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                System.out.println("[Server] Starting");
                 int port = 0;
                 int thread = 0;
                 // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Démarrer le serveur"});
                 Protocole VESPAP = new Serveur.Protocole.VESPAP(ServeurUI.this);
                 try (BufferedReader lecteur = new BufferedReader(new FileReader("src/main/java/Serveur/properties.conf"))) {
 
-                    System.out.println("Reading conf file");
+                    System.out.println("[Server] Reading conf file");
                     String tmp = lecteur.readLine();
                     String[] tmp2 = tmp.split("=");
                     port = Integer.parseInt(tmp2[1]);
                     tmp = lecteur.readLine();
                     tmp2 = tmp.split("=");
                     thread = Integer.parseInt(tmp2[1]);
-
-                    System.out.println(" Port : "+ port + " Nombre Thread : "+ thread);
+                    System.out.println("[Server] Port : "+ port + " Nombre Thread : "+ thread);
 
                 }
                 catch (IOException ex){
@@ -85,7 +85,8 @@ public class ServeurUI extends JFrame implements Logger {
                     throw new RuntimeException(ex);
                 }
                 Server.start();
-                System.out.println("Server Starting");
+                System.out.println("[Server] Started");
+
 
             }
         });
@@ -97,7 +98,7 @@ public class ServeurUI extends JFrame implements Logger {
                 // Insérez votre code d'arrêt du serveur ici
                 // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Arrêter le serveur"});
                 Server.interrupt();
-                System.out.println("Server Stoping");
+                System.out.println("[Server] Stopping");
             }
         });
 
@@ -106,6 +107,7 @@ public class ServeurUI extends JFrame implements Logger {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Efface les logs en supprimant toutes les lignes du modèle de données
+                System.out.println("[Server] Clearing logs");
                 while (logTableModel.getRowCount() > 0) {
                     logTableModel.removeRow(0);
                 }
@@ -124,7 +126,7 @@ public class ServeurUI extends JFrame implements Logger {
         Vector<String> ligne = new Vector<>();
         ligne.add(Thread.currentThread().getName());
         ligne.add(message);
-        modele.insertRow(modele.getRowCount(),ligne);
+        modele.insertRow(0,ligne);
     }
     private void videLogs()
     {
@@ -139,4 +141,5 @@ public class ServeurUI extends JFrame implements Logger {
             }
         });
     }
+
 }

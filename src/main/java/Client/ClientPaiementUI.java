@@ -1,10 +1,13 @@
 package Client;
 
+import Serveur.FinConnexionException;
 import Serveur.Protocole.*;
 import Serveur.ThreadServerPool;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -30,6 +33,11 @@ public class ClientPaiementUI extends JFrame {
     private JScrollPane scrollPane;
     private JButton paymentButton;
     private JButton actualiserButton;
+    private JButton getArticleButton;
+
+    boolean dataGridChange;
+    // si true -> datagrid Factures
+    // si false -> datagrid Articles
 
     public ClientPaiementUI() throws IOException {
         super("ClientPaiementUI");
@@ -39,43 +47,8 @@ public class ClientPaiementUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
 
-        // Id, carte et nom de carte
-        JPanel idPanel = new JPanel();
-        idPanel.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.anchor = GridBagConstraints.WEST;
-        JLabel idLabel = new JLabel("Id: ");
-        idPanel.add(idLabel, gbc);
-        gbc.gridx = 1;
-        gbc.gridy = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        idField = new JTextField(10);
-        idPanel.add(idField, gbc);
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.fill = GridBagConstraints.NONE;
-        JLabel cardNumberLabel = new JLabel("Carte: ");
-        idPanel.add(cardNumberLabel, gbc);
-        gbc.gridx = 1;
-        gbc.gridy = 1;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        cardNumberField = new JTextField(20);
-        idPanel.add(cardNumberField, gbc);
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        gbc.fill = GridBagConstraints.NONE;
-        JLabel nameLabel = new JLabel("Nom carte: ");
-        idPanel.add(nameLabel, gbc);
-        gbc.gridx = 1;
-        gbc.gridy = 2;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        nameField = new JTextField(20);
-        idPanel.add(nameField, gbc);
-        add(idPanel);
+        dataGridChange = true;
 
-        // Login avec username et password et un bouton
         JPanel loginPanel = new JPanel();
         loginPanel.setLayout(new FlowLayout());
         JLabel usernameLabel = new JLabel("Nom d'utilisateur: ");
@@ -95,7 +68,7 @@ public class ClientPaiementUI extends JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 // Code à exécuter lors de la fermeture de la fenêtre
-                System.out.println("Fermeture socket et flux");
+                System.out.println("[Close Client] Fermeture Flux & Socket");
                 try{
                     ois.close();
                     oos.close();
@@ -109,21 +82,28 @@ public class ClientPaiementUI extends JFrame {
         logoutButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Effectue les opérations de logout ici
+                System.out.println("[logoutButton] press");
                 try {
                     LogoutRequete requete = new LogoutRequete(usernameField.getText());
                     oos.writeObject(requete);
                     LogoutResponse reponse = (LogoutResponse) ois.readObject();
-                    System.out.println("Test Avant reponse");
                     if (reponse.getValide()) {
-                        System.out.println("Logout Valide");
+                        System.out.println("[logoutButton] Logout Valide");
                         logoutButton.setEnabled(false);
                         loginButton.setEnabled(true);
+                        actualiserButton.setEnabled(false);
                         paymentButton.setEnabled(false);
+                        getArticleButton.setEnabled(false);
                         usernameField.setText("");
                         passwordField.setText("");
+                        DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                        tableModel.setRowCount(0);
+                        cardNumberField.setText("");
+                        idField.setText("");
+                        nameField.setText("");
+
                     } else {
-                        System.out.println("Logout pas valide");
+                        System.out.println("[logoutButton] Logout Invalide");
                     }
                 } catch (IOException | ClassNotFoundException ex) {
                     ex.printStackTrace();
@@ -134,6 +114,7 @@ public class ClientPaiementUI extends JFrame {
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                System.out.println("[loginButton] press");
                 try{
                     char[] passwordChars = passwordField.getPassword();
                     String password = new String(passwordChars);
@@ -142,20 +123,84 @@ public class ClientPaiementUI extends JFrame {
                     LoginResponse reponse = (LoginResponse) ois.readObject();
                     System.out.println("Test Avant reponse");
                     if (reponse.isValide()) {
-                        System.out.println("Login Valide");
+                        System.out.println("[loginButton] Login Valide");
 
                         createDialoge("Vous êtes connecté","Login");
                         logoutButton.setEnabled(true);
+                        actualiserButton.setEnabled(true);
                         loginButton.setEnabled(false);
                         paymentButton.setEnabled(true);
+                        getArticleButton.setEnabled(true);
                     } else {
-                        System.out.println("Login pas valide");
+                        System.out.println("[loginButton] Login Invalide");
                         createDialoge("Erreur login","Login");
                     }
                 } catch (IOException | ClassNotFoundException ex) {
                     throw new RuntimeException(ex);
                 }
 
+            }
+        });
+
+
+
+        // Id, carte et nom de carte
+        JPanel idPanel = new JPanel();
+        idPanel.setLayout(new FlowLayout());
+        JLabel idLabel = new JLabel("Id: ");
+        idPanel.add(idLabel);
+        idField = new JTextField(10);
+        idPanel.add(idField);
+        actualiserButton = new JButton("Actualiser");
+        actualiserButton.setEnabled(false);
+        idPanel.add(actualiserButton);
+        getArticleButton = new JButton("Show articles");
+        getArticleButton.setEnabled(false);
+        idPanel.add(getArticleButton);
+        add(idPanel);
+
+        getArticleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                System.out.println("[getArticlesButton] press");
+                if(dataGridChange && table.getSelectedRow() != -1){
+                    int selectedRow = table.getSelectedRow();
+                    int idArticle = Integer.parseInt((String) table.getValueAt(selectedRow, 0));
+                    if(dataGridChange)
+                        dataGridChange = false;
+
+                    changeDataGrid(false);
+                    DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                    tableModel.setRowCount(0);
+
+                    if (idArticle != -1) {
+
+                        try
+                        {
+                            ArticleRequete requete = new ArticleRequete(idArticle);
+                            oos.writeObject(requete);
+                            ArticleResponse reponse = (ArticleResponse) ois.readObject();
+                            if (reponse.getTaille() != 0) {
+                                System.out.println("[ArticlesBouton] Il y a " + reponse.getTaille()+ " articles");
+                                for(int i = 0; i < reponse.getTaille();i++){
+                                    Article art = reponse.Articles.get(i);
+                                    ajouterArticleDataGrid(art.getName(),art.getQuantity(),art.getPrice(),art.getTotalPrice());
+                                }
+                            } else {
+                                createDialoge("Erreur recuperation article","Article");
+                            }
+                        }
+                        catch (IOException | ClassNotFoundException ex) {
+                            throw new RuntimeException(ex);
+                        }
+
+                    }
+                    else {
+                        createDialoge("Veuillez selectionner une facture","Articles");
+                    }
+                }
+                else
+                    createDialoge("Veuillez selectioner une facture","Article");
             }
         });
 
@@ -172,7 +217,7 @@ public class ClientPaiementUI extends JFrame {
         tableModel.addColumn("Montant");
 
         table = new JTable(tableModel);
-        table.setPreferredScrollableViewportSize(new Dimension(500, 70));
+        table.setPreferredScrollableViewportSize(new Dimension(500, 90));
         table.setFillsViewportHeight(true);
         scrollPane = new JScrollPane(table);
         tablePanel.add(scrollPane, BorderLayout.CENTER);
@@ -185,27 +230,44 @@ public class ClientPaiementUI extends JFrame {
         // Bouton payement
         JPanel paymentPanel = new JPanel();
         paymentPanel.setLayout(new FlowLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
         paymentButton = new JButton("Payer");
-        actualiserButton = new JButton("Actualiser");
-        paymentPanel.add(actualiserButton);
+        JLabel cardNumberLabel = new JLabel("Carte: ");
+        paymentPanel.add(cardNumberLabel, gbc);
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        cardNumberField = new JTextField(20);
+        paymentPanel.add(cardNumberField, gbc);
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.fill = GridBagConstraints.NONE;
+        JLabel nameLabel = new JLabel("Nom carte: ");
+        paymentPanel.add(nameLabel, gbc);
+        gbc.gridx = 1;
+        gbc.gridy = 2;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        nameField = new JTextField(20);
+        paymentPanel.add(nameField, gbc);
         paymentPanel.add(paymentButton);
         paymentButton.setEnabled(false);
         add(paymentPanel);
 
-        setSize(650, 450);
+        setSize(670, 450);
         setVisible(true);
 
         paymentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Ajoute le code pour effectuer le paiement ici
+                System.out.println("[PayementButton] press");
                 String tmp;
                 int idFacture = -1;
                 if(table.getSelectedRow() != -1 && !cardNumberField.getText().isEmpty() && !nameField.getText().isEmpty())
                 {
                     try{
 
-                        String Card = cardNumberField.getText();
+                        String Card = cardNumberField.getText().replace(" ","");
                         if(isNumeric(Card))
                         {
                             if(Card.length() >= 8)
@@ -214,17 +276,31 @@ public class ClientPaiementUI extends JFrame {
                                 if (selectedRow != -1) {
                                     tmp = (String) table.getValueAt(selectedRow, 0);
                                     idFacture = Integer.parseInt(tmp);
-                                    System.out.println(idFacture);
                                 }
-                                System.out.println(idFacture);
-                                PayeRequete requete = new PayeRequete(cardNumberField.getText(),nameField.getText(),idFacture);
+
+                                PayeRequete requete = new PayeRequete(Card,nameField.getText(),idFacture);
                                 oos.writeObject(requete);
                                 PayeResponse reponse = (PayeResponse) ois.readObject();
                                 if(reponse.IsCardValide())
                                 {
-                                    createDialoge("Carte Valide !","Carte");
+                                    createDialoge("Paiement effectué !","Paiement");
                                     cardNumberField.setText("");
                                     nameField.setText("");
+
+                                    FactureRequete req = new FactureRequete((int)table.getValueAt(selectedRow, 1));
+                                    oos.writeObject(req);
+                                    FactureResponse rep = (FactureResponse) ois.readObject();
+                                    DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                                    tableModel.setRowCount(0);
+                                    if (rep.getTaille() != 0) {
+                                        for(int i = 0; i < rep.getTaille();i++){
+                                            Facture fac = rep.Factures.get(i);
+                                            ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
+                                        }
+                                    } else {
+                                        System.out.println("[PayementButton] Update Data Gri: Plus de facture a paye");
+                                        createDialoge("Il n'y a plus de facture a payer","Facture");
+                                    }
                                 }
                                 else
                                     createDialoge("Carte invalide !","Carte");
@@ -255,27 +331,35 @@ public class ClientPaiementUI extends JFrame {
         actualiserButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                System.out.println("[ActualiserButton] press");
                 DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
                 tableModel.setRowCount(0);
+                if(!dataGridChange)
+                {
+                    changeDataGrid(true);
+                    dataGridChange = true;
+                }
                 try {
                     if(!idField.getText().isEmpty() && isNumeric(idField.getText()))
                     {
                         int id = Integer.parseInt(idField.getText());
-
-                        FactureRequete requete = new FactureRequete(id);
-                        oos.writeObject(requete);
-                        FactureResponse reponse = (FactureResponse) ois.readObject();
-                        System.out.println("Test Avant reponse");
-                        if (reponse.getTaille() != 0) {
-                            System.out.println("Il y a " + reponse.getTaille()+ "Facture impayé");
-                            for(int i = 0; i < reponse.getTaille();i++){
-                                Facture fac = reponse.Factures.get(i);
-                                ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
+                        if(id > 0){
+                            FactureRequete requete = new FactureRequete(id);
+                            oos.writeObject(requete);
+                            FactureResponse reponse = (FactureResponse) ois.readObject();
+                            if (reponse.getTaille() != 0) {
+                                System.out.println("[ActualiserButton] Il y a " + reponse.getTaille()+ " Facture impayé");
+                                for(int i = 0; i < reponse.getTaille();i++){
+                                    Facture fac = reponse.Factures.get(i);
+                                    ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
+                                }
+                            } else {
+                                createDialoge("Aucune facture impayé","Facture");
                             }
-                        } else {
-                            System.out.println("Aucune facture impayé");
-                            createDialoge("Aucune facture impayé","Facture");
                         }
+                        else
+                            createDialoge("Id client ne peut etre plus petit que 1","ID");
+
                     }
                     else
                         createDialoge("Veuillez introduire un numero de client valide","ID");
@@ -297,6 +381,39 @@ public class ClientPaiementUI extends JFrame {
         tableModel.addRow(nouvelleLigne);
 
     }
+    public void ajouterArticleDataGrid(String name,int stock, Double price, double total)
+    {
+        DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+        Object[] nouvelleLigne = {name,stock, price, total};
+        tableModel.addRow(nouvelleLigne);
+
+    }
+    public void changeDataGrid(boolean choice){
+        DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+        tableModel.setColumnCount(0);
+
+        if(choice){
+
+            System.out.println("Change data grid Factures");
+            tableModel.addColumn("IdFacture");
+            tableModel.addColumn("IdClient");
+            tableModel.addColumn("Date");
+            tableModel.addColumn("Montant");
+
+            // Met à jour l'affichage
+            table.updateUI();
+        }
+        else {
+            System.out.println("Change data grid Articles");
+            tableModel.addColumn("Articles");
+            tableModel.addColumn("Quantité");
+            tableModel.addColumn("Prix");
+            tableModel.addColumn("Prix Total");
+
+            // Met à jour l'affichage
+            table.updateUI();
+        }
+    }
     public void createDialoge(String message,String title)
     {
         JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE);
@@ -304,4 +421,5 @@ public class ClientPaiementUI extends JFrame {
     private boolean isNumeric(String str) {
         return str.matches("\\d*");
     }
+
 }

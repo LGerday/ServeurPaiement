@@ -17,7 +17,7 @@ public class ThreadServerPool extends ThreadServer {
     }
     @Override
     public void run() {
-        logger.Trace("Démarrage du TH Serveur (Pool)...");
+        logger.Trace("Démarrage du TH Serveur (Pool) avec " + taillePool +" threads");
         // Création du pool de threads
         try {
             for (int i = 0; i < taillePool; i++)
