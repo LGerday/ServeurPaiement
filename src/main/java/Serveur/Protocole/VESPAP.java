@@ -148,12 +148,6 @@ public class VESPAP implements Protocole{
             ResultSet rs = bean.getRs();
             if (rs != null) {
                 while (rs.next()) {
-                    /*String name,int stock, Double price, double total
-                     tableModel.addColumn("Articles");
-                     tableModel.addColumn("Quantité");
-                     tableModel.addColumn("Prix");
-                     tableModel.addColumn("Prix Total");
-                    */
                     int stock = rs.getInt("quantite");
                     int article = rs.getInt("idArticle");
                     System.out.println("Requete ventes : "+article + " "+ stock);

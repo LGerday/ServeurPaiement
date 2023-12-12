@@ -41,7 +41,7 @@ public class ClientPaiementUI extends JFrame {
 
     public ClientPaiementUI() throws IOException {
         super("ClientPaiementUI");
-        socket = new Socket("192.168.0.105",50000);
+        socket = new Socket("10.59.22.40",50000);
         oos = new ObjectOutputStream(socket.getOutputStream());
         ois = new ObjectInputStream(socket.getInputStream());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -263,6 +263,7 @@ public class ClientPaiementUI extends JFrame {
                 System.out.println("[PayementButton] press");
                 String tmp;
                 int idFacture = -1;
+                int idClient = Integer.parseInt(idField.getText());
                 if(table.getSelectedRow() != -1 && !cardNumberField.getText().isEmpty() && !nameField.getText().isEmpty())
                 {
                     try{
@@ -287,7 +288,7 @@ public class ClientPaiementUI extends JFrame {
                                     cardNumberField.setText("");
                                     nameField.setText("");
 
-                                    FactureRequete req = new FactureRequete((int)table.getValueAt(selectedRow, 1));
+                                    FactureRequete req = new FactureRequete(idClient);
                                     oos.writeObject(req);
                                     FactureResponse rep = (FactureResponse) ois.readObject();
                                     DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
