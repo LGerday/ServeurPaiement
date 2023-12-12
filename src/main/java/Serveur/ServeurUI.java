@@ -17,26 +17,46 @@ import javax.swing.table.DefaultTableModel;
 public class ServeurUI extends JFrame implements Logger {
 
 
-    ThreadServerPool Server;
+    ThreadServer Server;
     private JButton startButton;
     private JButton stopButton;
     private JTable logTable;
     private DefaultTableModel logTableModel;
     private JButton clearLogButton;
+    private JCheckBox secureBox;
+    private JTextField threadNumberField;
+    private JRadioButton poolBox,demandeBox;
 
     public ServeurUI() {
         setTitle("ServeurUI");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(600, 400);
+        setSize(800, 600);
 
         // Panneau principal
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BorderLayout());
 
         // Boutons Démarrer et Arrêter le serveur
+        ButtonGroup buttonGroup = new ButtonGroup();
+        JPanel choicePanel = new JPanel();
+        secureBox = new JCheckBox("Version sécurisé");
+        poolBox = new JRadioButton("Serveur en pool");
+        demandeBox = new JRadioButton("Serveur a la demande");
+        threadNumberField = new JTextField(5);
+        buttonGroup.add(poolBox);
+        buttonGroup.add(demandeBox);
+
+        choicePanel.add(secureBox);
+        choicePanel.add(demandeBox);
+        choicePanel.add(poolBox);
+        choicePanel.add(threadNumberField);
+
+
+
         JPanel buttonPanel = new JPanel();
         startButton = new JButton("Démarrer Serveur");
         stopButton = new JButton("Arrêter Serveur");
+        buttonPanel.add(choicePanel);
         buttonPanel.add(startButton);
         buttonPanel.add(stopButton);
 
@@ -61,29 +81,51 @@ public class ServeurUI extends JFrame implements Logger {
             public void actionPerformed(ActionEvent e) {
                 System.out.println("[Server] Starting");
                 int port = 0;
-                int thread = 0;
-                // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Démarrer le serveur"});
-                Protocole VESPAP = new Serveur.Protocole.VESPAP(ServeurUI.this);
+                Protocole myProtocole = null;
+                if(secureBox.isSelected())
+                {
+                   myProtocole = new Serveur.ProtocoleSecure.VESPAPS(ServeurUI.this);
+                }
+                else
+                {
+                    // pas secure
+                    myProtocole  = new Serveur.Protocole.VESPAP(ServeurUI.this);
+                }
+                
                 try (BufferedReader lecteur = new BufferedReader(new FileReader("src/main/java/Serveur/properties.conf"))) {
 
                     System.out.println("[Server] Reading conf file");
                     String tmp = lecteur.readLine();
                     String[] tmp2 = tmp.split("=");
                     port = Integer.parseInt(tmp2[1]);
-                    tmp = lecteur.readLine();
-                    tmp2 = tmp.split("=");
-                    thread = Integer.parseInt(tmp2[1]);
-                    System.out.println("[Server] Port : "+ port + " Nombre Thread : "+ thread);
+                    if(secureBox.isSelected())
+                    {
+                        tmp = lecteur.readLine();
+                        tmp2 = tmp.split("=");
+                        port = Integer.parseInt(tmp2[1]);
+                    }
+                    System.out.println("[Server] Port : "+ port);
 
                 }
                 catch (IOException ex){
                     ex.printStackTrace();
                 }
-                try {
-                    Server = new ThreadServerPool(port,VESPAP,thread,ServeurUI.this);
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
+                if(demandeBox.isSelected()){
+                    // créeer le serveur sur demande
+                    try {
+                        Server = new ThreadServerDemande(port,myProtocole,ServeurUI.this);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
+                if(poolBox.isSelected()){
+                    try {
+                        Server = new ThreadServerPool(port,myProtocole,Integer.parseInt(threadNumberField.getText()),ServeurUI.this);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+
                 Server.start();
                 System.out.println("[Server] Started");
 
