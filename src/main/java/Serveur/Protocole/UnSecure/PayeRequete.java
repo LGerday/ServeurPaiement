@@ -1,6 +1,8 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
 
-public class PayeRequete implements Requete{
+import Serveur.Protocole.Requete;
+
+public class PayeRequete implements Requete {
 
     private String CardNumber;
     private String Name;

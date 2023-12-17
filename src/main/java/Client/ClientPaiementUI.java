@@ -1,13 +1,12 @@
 package Client;
 
-import Serveur.FinConnexionException;
 import Serveur.Protocole.*;
-import Serveur.ThreadServerPool;
+import Serveur.Protocole.Secure.LoginRequeteSecure;
+import Serveur.Protocole.Secure.LoginResponseSecure;
+import Serveur.Protocole.UnSecure.*;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableColumnModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -34,14 +33,21 @@ public class ClientPaiementUI extends JFrame {
     private JButton paymentButton;
     private JButton actualiserButton;
     private JButton getArticleButton;
-
+    public boolean securePort;
     boolean dataGridChange;
     // si true -> datagrid Factures
     // si false -> datagrid Articles
 
     public ClientPaiementUI() throws IOException {
+
         super("ClientPaiementUI");
-        socket = new Socket("10.59.22.40",50000);
+        dialogSecureChoice(this);
+        int port;
+        if(securePort)
+            port = 50001;
+        else
+            port = 50000;
+        socket = new Socket("127.0.0.1",port);
         oos = new ObjectOutputStream(socket.getOutputStream());
         ois = new ObjectInputStream(socket.getInputStream());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -114,31 +120,26 @@ public class ClientPaiementUI extends JFrame {
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("[loginButton] press");
-                try{
-                    char[] passwordChars = passwordField.getPassword();
-                    String password = new String(passwordChars);
-                    LoginRequete requete = new LoginRequete(usernameField.getText(),password);
-                    oos.writeObject(requete);
-                    LoginResponse reponse = (LoginResponse) ois.readObject();
-                    System.out.println("Test Avant reponse");
-                    if (reponse.isValide()) {
-                        System.out.println("[loginButton] Login Valide");
-
-                        createDialoge("Vous êtes connecté","Login");
-                        logoutButton.setEnabled(true);
-                        actualiserButton.setEnabled(true);
-                        loginButton.setEnabled(false);
-                        paymentButton.setEnabled(true);
-                        getArticleButton.setEnabled(true);
-                    } else {
-                        System.out.println("[loginButton] Login Invalide");
-                        createDialoge("Erreur login","Login");
-                    }
-                } catch (IOException | ClassNotFoundException ex) {
-                    throw new RuntimeException(ex);
+                boolean valide = false;
+                if(securePort){
+                    valide = LoginSecure();
                 }
-
+                else
+                {
+                    valide = LoginUnsecure();
+                }
+                if (valide) {
+                    System.out.println("[loginButton] Login Valide");
+                    createDialoge("Vous êtes connecté","Login");
+                    logoutButton.setEnabled(true);
+                    actualiserButton.setEnabled(true);
+                    loginButton.setEnabled(false);
+                    paymentButton.setEnabled(true);
+                    getArticleButton.setEnabled(true);
+                } else {
+                    System.out.println("[loginButton] Login Invalide");
+                    createDialoge("Erreur login","Login");
+                }
             }
         });
 
@@ -418,6 +419,73 @@ public class ClientPaiementUI extends JFrame {
     public void createDialoge(String message,String title)
     {
         JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE);
+    }
+    public boolean LoginUnsecure(){
+        System.out.println("[loginButton] press");
+        try{
+            char[] passwordChars = passwordField.getPassword();
+            String password = new String(passwordChars);
+            LoginRequete requete = new LoginRequete(usernameField.getText(),password);
+            oos.writeObject(requete);
+            LoginResponse reponse = (LoginResponse) ois.readObject();
+            if(reponse.isValide())
+                return true;
+            else
+                return false;
+        } catch (IOException | ClassNotFoundException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+    public boolean LoginSecure(){
+        System.out.println("[loginButton] press");
+        try{
+            char[] passwordChars = passwordField.getPassword();
+            String password = new String(passwordChars);
+            LoginRequeteSecure requete = new LoginRequeteSecure(usernameField.getText(),password);
+            oos.writeObject(requete);
+            LoginResponseSecure reponse = (LoginResponseSecure) ois.readObject();
+            if(reponse.isValide())
+                return true;
+            else
+                return false;
+        } catch (IOException | ClassNotFoundException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+    private void dialogSecureChoice(JFrame parent) {
+        JDialog dialog = new JDialog(parent, "Choice version", true);
+        JPanel panel = new JPanel();
+        JLabel label = new JLabel("Check the box for secure version");
+
+        JCheckBox checkBox = new JCheckBox("Use secure version");
+
+        JButton okButton = new JButton("OK");
+        okButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                boolean isChecked = checkBox.isSelected();
+                // Use isChecked value as needed
+                if(checkBox.isSelected())
+                {
+                    System.out.println("Checkbox is checked: " + isChecked);
+                    securePort = true;
+                }
+                else
+                {
+                    System.out.println("Checkbox is not checked: " + isChecked);
+                    securePort = false;
+                }
+                dialog.dispose(); // Close the dialog
+            }
+        });
+
+        panel.add(label);
+        panel.add(checkBox);
+        panel.add(okButton);
+
+        dialog.add(panel);
+        dialog.setSize(250, 150);
+        dialog.setVisible(true);
     }
     private boolean isNumeric(String str) {
         return str.matches("\\d*");

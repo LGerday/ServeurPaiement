@@ -2,7 +2,8 @@ package Serveur;
 
 import Serveur.Protocole.Logger;
 import Serveur.Protocole.Protocole;
-import Serveur.Protocole.VESPAP;
+import Serveur.Protocole.Secure.VESPAPS;
+import Serveur.Protocole.UnSecure.VESPAP;
 
 import javax.swing.*;
 import java.awt.*;
@@ -59,6 +60,7 @@ public class ServeurUI extends JFrame implements Logger {
         buttonPanel.add(choicePanel);
         buttonPanel.add(startButton);
         buttonPanel.add(stopButton);
+        stopButton.setEnabled(false);
 
         // Datagrid pour afficher des logs (Thread et Action)
         JPanel logPanel = new JPanel();
@@ -84,12 +86,12 @@ public class ServeurUI extends JFrame implements Logger {
                 Protocole myProtocole = null;
                 if(secureBox.isSelected())
                 {
-                   myProtocole = new Serveur.ProtocoleSecure.VESPAPS(ServeurUI.this);
+                   myProtocole = new VESPAPS(ServeurUI.this);
                 }
                 else
                 {
                     // pas secure
-                    myProtocole  = new Serveur.Protocole.VESPAP(ServeurUI.this);
+                    myProtocole  = new VESPAP(ServeurUI.this);
                 }
                 
                 try (BufferedReader lecteur = new BufferedReader(new FileReader("src/main/java/Serveur/properties.conf"))) {
@@ -127,6 +129,8 @@ public class ServeurUI extends JFrame implements Logger {
                 }
 
                 Server.start();
+                stopButton.setEnabled(true);
+                startButton.setEnabled(false);
                 System.out.println("[Server] Started");
 
 
@@ -140,6 +144,8 @@ public class ServeurUI extends JFrame implements Logger {
                 // Insérez votre code d'arrêt du serveur ici
                 // Vous pouvez ajouter des logs en utilisant logTableModel.addRow(new Object[]{"ThreadName", "Arrêter le serveur"});
                 Server.interrupt();
+                startButton.setEnabled(true);
+                stopButton.setEnabled(false);
                 System.out.println("[Server] Stopping");
             }
         });

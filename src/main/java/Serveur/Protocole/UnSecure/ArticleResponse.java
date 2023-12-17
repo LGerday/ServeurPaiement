@@ -1,8 +1,11 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
+
+import Serveur.Protocole.Article;
+import Serveur.Protocole.Reponse;
 
 import java.util.ArrayList;
 
-public class ArticleResponse implements  Reponse{
+public class ArticleResponse implements Reponse {
 
 
     public ArrayList<Article> Articles;

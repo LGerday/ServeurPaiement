@@ -1,4 +1,6 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
+
+import Serveur.Protocole.Requete;
 
 public class LoginRequete implements Requete
 {

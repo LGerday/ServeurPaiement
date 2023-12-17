@@ -1,6 +1,8 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
 
-public class LogoutRequete implements Requete{
+import Serveur.Protocole.Requete;
+
+public class LogoutRequete implements Requete {
 
     String username;
 

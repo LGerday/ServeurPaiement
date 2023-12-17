@@ -1,6 +1,8 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
 
-public class FactureRequete implements Requete{
+import Serveur.Protocole.Requete;
+
+public class FactureRequete implements Requete {
 
     private int IdClient;
 

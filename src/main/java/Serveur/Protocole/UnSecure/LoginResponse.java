@@ -1,4 +1,6 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
+
+import Serveur.Protocole.Reponse;
 
 public class LoginResponse implements Reponse
 {

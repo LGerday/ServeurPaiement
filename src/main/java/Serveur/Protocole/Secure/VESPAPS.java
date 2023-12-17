@@ -1,10 +1,19 @@
-package Serveur.ProtocoleSecure;
+package Serveur.Protocole.Secure;
 
 import JDBC.BeanJDBC;
 import Serveur.FinConnexionException;
 import Serveur.Protocole.*;
+import Serveur.Protocole.UnSecure.*;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.Socket;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.Security;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,6 +30,7 @@ public class VESPAPS implements Protocole {
         logger = log;
         clientsConnectes = new HashMap<>();
         bean = new BeanJDBC();
+        Security.addProvider(new BouncyCastleProvider());
     }
     @Override
     public String getNom() {
@@ -29,25 +39,18 @@ public class VESPAPS implements Protocole {
 
     @Override
     public Reponse TraiteRequete(Requete requete, Socket socket) throws FinConnexionException {
-        if (requete instanceof LoginRequete)
-            return TraiteRequeteLOGIN((LoginRequete) requete, socket);
-        if (requete instanceof FactureRequete) {
-            return TraiteRequeteFACTURE((FactureRequete) requete, socket);
-        }
-        if( requete instanceof PayeRequete)
-            return TraiteRequetePaye((PayeRequete) requete,socket);
-        if(requete instanceof LogoutRequete)
-            return TraiteRequeteLOGOUT((LogoutRequete) requete,socket);
-        if(requete instanceof ArticleRequete)
-            return TraiteRequeteArticle((ArticleRequete) requete,socket);
+        if (requete instanceof LoginRequeteSecure)
+            return TraiteRequeteSecureLOGIN((LoginRequeteSecure) requete, socket);
 
         return null;
     }
 
-    private synchronized LoginResponse TraiteRequeteLOGIN(LoginRequete requete, Socket socket) throws FinConnexionException {
-        logger.Trace("RequeteLOGIN reçue de " + requete.getLogin());
+    private synchronized LoginResponseSecure TraiteRequeteSecureLOGIN(LoginRequeteSecure requete, Socket socket) throws FinConnexionException {
+        logger.Trace("RequeteSecureLOGIN reçue de " + requete.getLogin());
         String query = "select * from employes where username = '" + requete.getLogin()+"'";
         String password = null;
+        String username = null;
+        byte[] digestLocal = new byte[0];
         try {
             bean.execute(query);
 
@@ -57,7 +60,7 @@ public class VESPAPS implements Protocole {
                 while (rs.next()) {
                     // Récupère les colonnes par leur nom (ajuste les noms selon ta structure de base de données)
                     int id = rs.getInt("id");
-                    String username = rs.getString("username");
+                    username = rs.getString("username");
                     password = rs.getString("password");
                 }
             } else {
@@ -69,16 +72,32 @@ public class VESPAPS implements Protocole {
             e.printStackTrace();
         }
 
-        if (password != null)
-            if (password.equals(requete.getPassword())) {
+        if (password != null) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-1","BC");
+                md.update(requete.getLogin().getBytes());
+                md.update(password.getBytes());
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                DataOutputStream dos = new DataOutputStream(baos);
+                dos.writeLong(requete.getTemps());
+                dos.writeDouble(requete.getAlea());
+                md.update(baos.toByteArray());
+                digestLocal = md.digest();
+            } catch (NoSuchAlgorithmException | NoSuchProviderException | IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+            if (MessageDigest.isEqual(requete.getDigest(),digestLocal)) {
+                System.out.println("Comparaison digest login -> correct");
                 String ipPortClient = socket.getInetAddress().getHostAddress() + "/" +
                         socket.getPort();
                 logger.Trace(requete.getLogin() + " correctement loggé de " + ipPortClient);
                 clientsConnectes.put(requete.getLogin(), socket);
-                return new LoginResponse(true);
+                return new LoginResponseSecure(true);
             }
+        System.out.println("Comparaison digest login -> incorrect");
         logger.Trace(requete.getLogin() + " --> erreur de login");
-        return new LoginResponse(false);
+        return new LoginResponseSecure(false);
     }
 
     private synchronized LogoutResponse TraiteRequeteLOGOUT(LogoutRequete requete, Socket socket) throws FinConnexionException {

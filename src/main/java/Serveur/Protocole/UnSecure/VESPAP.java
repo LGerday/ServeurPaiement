@@ -1,7 +1,8 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
 
 import JDBC.BeanJDBC;
 import Serveur.FinConnexionException;
+import Serveur.Protocole.*;
 
 import java.net.Socket;
 import java.sql.Date;
@@ -9,7 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 
-public class VESPAP implements Protocole{
+public class VESPAP implements Protocole {
 
     private BeanJDBC bean;
     private HashMap<String,Socket> clientsConnectes;
@@ -30,9 +31,8 @@ public class VESPAP implements Protocole{
     public Reponse TraiteRequete(Requete requete, Socket socket) throws FinConnexionException {
         if (requete instanceof LoginRequete)
             return TraiteRequeteLOGIN((LoginRequete) requete, socket);
-        if (requete instanceof FactureRequete) {
+        if (requete instanceof FactureRequete)
             return TraiteRequeteFACTURE((FactureRequete) requete, socket);
-        }
         if( requete instanceof PayeRequete)
             return TraiteRequetePaye((PayeRequete) requete,socket);
         if(requete instanceof LogoutRequete)
@@ -69,11 +69,12 @@ public class VESPAP implements Protocole{
         }
 
         if (password != null)
-            if (password.equals(requete.getPassword())) {
+            if (password.equals(requete.getPassword())){
                 String ipPortClient = socket.getInetAddress().getHostAddress() + "/" +
                         socket.getPort();
                 logger.Trace(requete.getLogin() + " correctement loggé de " + ipPortClient);
                 clientsConnectes.put(requete.getLogin(), socket);
+                System.out.println("Login valide");
                 return new LoginResponse(true);
             }
         logger.Trace(requete.getLogin() + " --> erreur de login");

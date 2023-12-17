@@ -1,6 +1,8 @@
-package Serveur.Protocole;
+package Serveur.Protocole.UnSecure;
 
-public class LogoutResponse implements Reponse{
+import Serveur.Protocole.Reponse;
+
+public class LogoutResponse implements Reponse {
 
     private boolean valide;
 
