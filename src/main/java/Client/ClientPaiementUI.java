@@ -1,10 +1,12 @@
 package Client;
 
 import Serveur.Protocole.*;
-import Serveur.Protocole.Secure.LoginRequeteSecure;
-import Serveur.Protocole.Secure.LoginResponseSecure;
+import Serveur.Protocole.Secure.*;
 import Serveur.Protocole.UnSecure.*;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -16,7 +18,12 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
+import java.security.Security;
 import java.sql.Date;
+import java.util.Arrays;
 
 public class ClientPaiementUI extends JFrame {
     private Socket socket;
@@ -35,6 +42,7 @@ public class ClientPaiementUI extends JFrame {
     private JButton getArticleButton;
     public boolean securePort;
     boolean dataGridChange;
+    private SecretKey sessionKey;
     // si true -> datagrid Factures
     // si false -> datagrid Articles
 
@@ -47,6 +55,7 @@ public class ClientPaiementUI extends JFrame {
             port = 50001;
         else
             port = 50000;
+        sessionKey = generateSessionKey();
         socket = new Socket("127.0.0.1",port);
         oos = new ObjectOutputStream(socket.getOutputStream());
         ois = new ObjectInputStream(socket.getInputStream());
@@ -341,38 +350,77 @@ public class ClientPaiementUI extends JFrame {
                     changeDataGrid(true);
                     dataGridChange = true;
                 }
-                try {
-                    if(!idField.getText().isEmpty() && isNumeric(idField.getText()))
-                    {
-                        int id = Integer.parseInt(idField.getText());
-                        if(id > 0){
-                            FactureRequete requete = new FactureRequete(id);
-                            oos.writeObject(requete);
-                            FactureResponse reponse = (FactureResponse) ois.readObject();
-                            if (reponse.getTaille() != 0) {
-                                System.out.println("[ActualiserButton] Il y a " + reponse.getTaille()+ " Facture impayé");
-                                for(int i = 0; i < reponse.getTaille();i++){
-                                    Facture fac = reponse.Factures.get(i);
-                                    ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
-                                }
-                            } else {
-                                createDialoge("Aucune facture impayé","Facture");
-                            }
-                        }
-                        else
-                            createDialoge("Id client ne peut etre plus petit que 1","ID");
 
+                if(!idField.getText().isEmpty() && isNumeric(idField.getText()))
+                {
+                    int id = Integer.parseInt(idField.getText());
+                    if(id > 0){
+                        if(securePort)
+                        {
+                            System.out.println("GetFactureSecure");
+                            GetFactureSecure(id);
+                        }
+                        else {
+                            GetFactureUnsecure(id);
+                        }
                     }
                     else
-                        createDialoge("Veuillez introduire un numero de client valide","ID");
-                } catch (IOException | ClassNotFoundException ex) {
-                    throw new RuntimeException(ex);
+                        createDialoge("Id client ne peut etre plus petit que 1","ID");
+
                 }
+                else
+                    createDialoge("Veuillez introduire un numero de client valide","ID");
+
 
             }
         });
     }
-
+    public void GetFactureSecure(int id){
+        try {
+            System.out.println("Session key : "+sessionKey);
+            FactureRequeteSecure requete = new FactureRequeteSecure(sessionKey,id);
+            System.out.println(Arrays.toString(requete.getMsg()));
+            oos.writeObject(requete);
+            FactureResponseSecure reponse = (FactureResponseSecure) ois.readObject();
+            byte[] msg = CryptData.DecryptSymDES(sessionKey,reponse.getMsg());
+            String listFact = CryptData.ByteToString(msg);
+            System.out.println("msg recu : "+listFact);
+            String []SplitFact = listFact.split("\\$");
+            System.out.println("Taille string getfacture reponse"+SplitFact.length);
+            if(SplitFact[0].equalsIgnoreCase("nothing"))
+            {
+                createDialoge("Aucune facture impayé","Facture");
+            }
+            else
+            {
+                for(String fac : SplitFact){
+                    System.out.println("String for boucle : "+ fac);
+                    String [] OneFacture = fac.split(";");
+                    ajouterFactureDataGrid(OneFacture[0],OneFacture[1],Date.valueOf(OneFacture[2]),Double.parseDouble(OneFacture[3]));
+                }
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public void GetFactureUnsecure(int id){
+        try {
+            FactureRequete requete = new FactureRequete(id);
+            oos.writeObject(requete);
+            FactureResponse reponse = (FactureResponse) ois.readObject();
+            if (reponse.getTaille() != 0) {
+                System.out.println("[ActualiserButton] Il y a " + reponse.getTaille()+ " Facture impayé");
+                for(int i = 0; i < reponse.getTaille();i++){
+                    Facture fac = reponse.Factures.get(i);
+                    ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
+                }
+            } else {
+                createDialoge("Aucune facture impayé","Facture");
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
     public static void main(String[] args) throws IOException {
         ClientPaiementUI clientPaiementUI = new ClientPaiementUI();
     }
@@ -437,20 +485,44 @@ public class ClientPaiementUI extends JFrame {
         }
     }
     public boolean LoginSecure(){
-        System.out.println("[loginButton] press");
+        System.out.println("[loginButton] press (Secure)");
         try{
+            InitializeSessionSecure init = new InitializeSessionSecure(sessionKey);
+            oos.writeObject(init);
+            InitializeSessionResponse end = (InitializeSessionResponse) ois.readObject();
+            if(end.isValide())
+                System.out.println("Handshake Successfull");
+            else
+                System.out.println("Error Handshake session key");
             char[] passwordChars = passwordField.getPassword();
             String password = new String(passwordChars);
-            LoginRequeteSecure requete = new LoginRequeteSecure(usernameField.getText(),password);
+            System.out.println("Session key login: "+sessionKey);
+            LoginRequeteSecure requete = new LoginRequeteSecure(usernameField.getText(),password,sessionKey);
             oos.writeObject(requete);
             LoginResponseSecure reponse = (LoginResponseSecure) ois.readObject();
-            if(reponse.isValide())
+            if(reponse.isValide()) {
+                //sessionKey = reponse.getSessionKey();
+                System.out.println("Clé de session récupérer !");
                 return true;
+            }
             else
                 return false;
         } catch (IOException | ClassNotFoundException ex) {
             throw new RuntimeException(ex);
         }
+    }
+    private SecretKey generateSessionKey(){
+        KeyGenerator cleGen = null;
+        Security.addProvider(new BouncyCastleProvider());
+        try {
+            cleGen = KeyGenerator.getInstance("DES","BC");
+
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException(e);
+        }
+        cleGen.init(new SecureRandom());
+        SecretKey sessionKey = cleGen.generateKey();
+        return sessionKey;
     }
     private void dialogSecureChoice(JFrame parent) {
         JDialog dialog = new JDialog(parent, "Choice version", true);

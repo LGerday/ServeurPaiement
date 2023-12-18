@@ -6,17 +6,18 @@ import Serveur.Protocole.*;
 import Serveur.Protocole.UnSecure.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.Security;
+import java.security.*;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class VESPAPS implements Protocole {
@@ -24,6 +25,7 @@ public class VESPAPS implements Protocole {
     private BeanJDBC bean;
     private HashMap<String,Socket> clientsConnectes;
     private Logger logger;
+    private SecretKey sessionKey;
 
 
     public VESPAPS(Logger log){
@@ -41,16 +43,25 @@ public class VESPAPS implements Protocole {
     public Reponse TraiteRequete(Requete requete, Socket socket) throws FinConnexionException {
         if (requete instanceof LoginRequeteSecure)
             return TraiteRequeteSecureLOGIN((LoginRequeteSecure) requete, socket);
+        if (requete instanceof InitializeSessionSecure)
+            return TraiteInitialize((InitializeSessionSecure) requete, socket);
+        if(requete instanceof FactureRequeteSecure)
+            return TraiteRequeteFACTURESecure((FactureRequeteSecure) requete,socket);
 
         return null;
     }
 
     private synchronized LoginResponseSecure TraiteRequeteSecureLOGIN(LoginRequeteSecure requete, Socket socket) throws FinConnexionException {
-        logger.Trace("RequeteSecureLOGIN reçue de " + requete.getLogin());
-        String query = "select * from employes where username = '" + requete.getLogin()+"'";
-        String password = null;
-        String username = null;
-        byte[] digestLocal = new byte[0];
+        logger.Trace("RequeteSecureLOGIN reçue de " );
+        System.out.println("Session key login: "+sessionKey);
+        byte[] msgDecrypt = CryptData.DecryptSymDES(sessionKey,requete.getMessage());
+        String msg = CryptData.ByteToString(msgDecrypt);
+        System.out.println("Test msg login decrypt : " + msg);
+        String [] msgSplit = msg.split(";");
+        String username = msgSplit[0];
+        String password = msgSplit[1];
+        String usernameBd,passwordBd = null;
+        String query = "select * from employes where username = '" + username+"'";
         try {
             bean.execute(query);
 
@@ -60,8 +71,8 @@ public class VESPAPS implements Protocole {
                 while (rs.next()) {
                     // Récupère les colonnes par leur nom (ajuste les noms selon ta structure de base de données)
                     int id = rs.getInt("id");
-                    username = rs.getString("username");
-                    password = rs.getString("password");
+                    usernameBd = rs.getString("username");
+                    passwordBd = rs.getString("password");
                 }
             } else {
                 // Gère le cas où rs est null
@@ -72,34 +83,30 @@ public class VESPAPS implements Protocole {
             e.printStackTrace();
         }
 
-        if (password != null) {
-            try {
-                MessageDigest md = MessageDigest.getInstance("SHA-1","BC");
-                md.update(requete.getLogin().getBytes());
-                md.update(password.getBytes());
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                DataOutputStream dos = new DataOutputStream(baos);
-                dos.writeLong(requete.getTemps());
-                dos.writeDouble(requete.getAlea());
-                md.update(baos.toByteArray());
-                digestLocal = md.digest();
-            } catch (NoSuchAlgorithmException | NoSuchProviderException | IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-            if (MessageDigest.isEqual(requete.getDigest(),digestLocal)) {
+        if (passwordBd != null) {
+            if(passwordBd.equalsIgnoreCase(password))
+            {
                 System.out.println("Comparaison digest login -> correct");
                 String ipPortClient = socket.getInetAddress().getHostAddress() + "/" +
                         socket.getPort();
-                logger.Trace(requete.getLogin() + " correctement loggé de " + ipPortClient);
-                clientsConnectes.put(requete.getLogin(), socket);
+                logger.Trace(username + " correctement loggé de " + ipPortClient);
+                clientsConnectes.put(username, socket);
                 return new LoginResponseSecure(true);
             }
+        }
+
         System.out.println("Comparaison digest login -> incorrect");
-        logger.Trace(requete.getLogin() + " --> erreur de login");
+        logger.Trace(username + " --> erreur de login");
         return new LoginResponseSecure(false);
     }
+    private synchronized InitializeSessionResponse TraiteInitialize(InitializeSessionSecure requete, Socket socket) throws FinConnexionException {
+        logger.Trace("Requete initialisation reçue de "+socket.getInetAddress().getHostAddress() + "/" +
+                socket.getPort());
+        byte[] cleSessionDecryptee = CryptData.DecryptAsymRSA(CryptData.RecupereClePriveeServeur(),requete.getSessionKeyCrypt());
+        sessionKey = new SecretKeySpec(cleSessionDecryptee,"DES");
+        return new InitializeSessionResponse(true);
 
+    }
     private synchronized LogoutResponse TraiteRequeteLOGOUT(LogoutRequete requete, Socket socket) throws FinConnexionException {
         logger.Trace("RequeteLOGOUT reçue de "+socket.getInetAddress().getHostAddress() + "/" +
                 socket.getPort());
@@ -107,10 +114,15 @@ public class VESPAPS implements Protocole {
 
         return rep;
     }
-    private synchronized FactureResponse TraiteRequeteFACTURE(FactureRequete requete, Socket socket) throws FinConnexionException {
-        logger.Trace("RequeteFacture : reception facture du client " + requete.getIdClient());
-        String query = "select * from factures where idClient = '" + requete.getIdClient()+"' AND paye = '0'";
-        FactureResponse rep = new FactureResponse();
+    private synchronized FactureResponseSecure TraiteRequeteFACTURESecure(FactureRequeteSecure requete, Socket socket) throws FinConnexionException {
+        System.out.println("Requete facture secure");
+        System.out.println(Arrays.toString(requete.getMsg()));
+        System.out.println("Session key : "+sessionKey);
+        byte[] msgDecrypt = CryptData.DecryptSymDES(sessionKey,requete.getMsg());
+        String msg = CryptData.ByteToString(msgDecrypt);
+        logger.Trace("RequeteFacture : reception facture du client " + msg);
+        String query = "select * from factures where idClient = '" + msg+"' AND paye = '0'";
+        ArrayList<Facture> MyFactures = new ArrayList<Facture>();
         try {
             bean.execute(query);
             ResultSet rs = bean.getRs();
@@ -121,7 +133,7 @@ public class VESPAPS implements Protocole {
                     int idClient = rs.getInt("idClient");
                     Date sqlDate = rs.getDate("date");
                     Double montant = rs.getDouble("montant");
-                    rep.Factures.add(new Facture(idFacture,idClient,sqlDate,montant));
+                    MyFactures.add(new Facture(idFacture,idClient,sqlDate,montant));
                 }
             } else {
 
@@ -131,8 +143,8 @@ public class VESPAPS implements Protocole {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        logger.Trace(rep.Factures.size() + " facture(s) recuperer avec succès");
-        return rep;
+        logger.Trace(MyFactures.size() + " facture(s) recuperer avec succès");
+        return new FactureResponseSecure(MyFactures,sessionKey);
 
     }
     private synchronized PayeResponse TraiteRequetePaye(PayeRequete requete, Socket socket) throws FinConnexionException {

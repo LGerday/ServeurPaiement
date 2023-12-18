@@ -30,4 +30,9 @@ public class Facture implements Serializable {
         return montant;
     }
     public String getIdFacture(){return String.valueOf(idFacture);};
+
+    @Override
+    public String toString() {
+        return idFacture+";"+id+";"+date+";"+montant+";";
+    }
 }
