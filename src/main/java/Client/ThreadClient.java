@@ -11,7 +11,6 @@ import java.net.Socket;
 public abstract class ThreadClient extends Thread
 {
     protected Socket csocket;
-
     protected Protocole protocole;
     protected Logger logger;
     private int numero;

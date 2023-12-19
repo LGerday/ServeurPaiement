@@ -6,7 +6,9 @@ import Serveur.Protocole.UnSecure.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -18,10 +20,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SecureRandom;
-import java.security.Security;
+import java.security.*;
 import java.sql.Date;
 import java.util.Arrays;
 
@@ -43,6 +42,8 @@ public class ClientPaiementUI extends JFrame {
     public boolean securePort;
     boolean dataGridChange;
     private SecretKey sessionKey;
+    private PrivateKey privateKey;
+    private PublicKey publicKey;
     // si true -> datagrid Factures
     // si false -> datagrid Articles
 
@@ -51,11 +52,23 @@ public class ClientPaiementUI extends JFrame {
         super("ClientPaiementUI");
         dialogSecureChoice(this);
         int port;
+        Security.addProvider(new BouncyCastleProvider());
+        KeyPairGenerator keyGen = null;
+        try {
+            keyGen = KeyPairGenerator.getInstance("RSA","BC");
+            keyGen.initialize(512,new SecureRandom());
+            KeyPair keyPair = keyGen.generateKeyPair();
+            publicKey = keyPair.getPublic();
+            privateKey = keyPair.getPrivate();
+            System.out.println("Public : "+ publicKey);
+            System.out.println("Private : "+ privateKey);
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException(e);
+        }
         if(securePort)
             port = 50001;
         else
             port = 50000;
-        sessionKey = generateSessionKey();
         socket = new Socket("127.0.0.1",port);
         oos = new ObjectOutputStream(socket.getOutputStream());
         ois = new ObjectInputStream(socket.getInputStream());
@@ -393,21 +406,35 @@ public class ClientPaiementUI extends JFrame {
             oos.writeObject(requete);
             PayeResponseSecure reponse = (PayeResponseSecure) ois.readObject();
             System.out.println("Reception reponse paye : "+reponse.isValide());
-            if(reponse.isValide())
+            Mac hm = Mac.getInstance("HMAC-MD5","BC");
+            hm.init(sessionKey);
+            hm.update(reponse.getValide().getBytes());
+            byte[] hmacLocal = hm.doFinal();
+            if(MessageDigest.isEqual(reponse.getHmac(),hmacLocal))
             {
-                createDialoge("Paiement effectué !","Paiement");
-                cardNumberField.setText("");
-                nameField.setText("");
-                GetFactureSecure(idClient);
+                System.out.println("Comparaison HMAC valide");
+                if(reponse.isValide())
+                {
+                    createDialoge("Paiement effectué !","Paiement");
+                    cardNumberField.setText("");
+                    nameField.setText("");
+                    GetFactureSecure(idClient);
+                }
             }
-        } catch (IOException | ClassNotFoundException e) {
+            else
+            {
+                System.out.println("HMAC différentes -> probleme");
+            }
+
+        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | NoSuchProviderException |
+                 InvalidKeyException e) {
             throw new RuntimeException(e);
         }
     }
     public void GetFactureSecure(int id){
         try {
             System.out.println("Session key : "+sessionKey);
-            FactureRequeteSecure requete = new FactureRequeteSecure(sessionKey,id);
+            FactureRequeteSecure requete = new FactureRequeteSecure(sessionKey,id,privateKey);
             System.out.println(Arrays.toString(requete.getMsg()));
             oos.writeObject(requete);
             FactureResponseSecure reponse = (FactureResponseSecure) ois.readObject();
@@ -520,21 +547,14 @@ public class ClientPaiementUI extends JFrame {
     public boolean LoginSecure(){
         System.out.println("[loginButton] press (Secure)");
         try{
-            InitializeSessionSecure init = new InitializeSessionSecure(sessionKey);
-            oos.writeObject(init);
-            InitializeSessionResponse end = (InitializeSessionResponse) ois.readObject();
-            if(end.isValide())
-                System.out.println("Handshake Successfull");
-            else
-                System.out.println("Error Handshake session key");
             char[] passwordChars = passwordField.getPassword();
             String password = new String(passwordChars);
-            System.out.println("Session key login: "+sessionKey);
-            LoginRequeteSecure requete = new LoginRequeteSecure(usernameField.getText(),password,sessionKey);
+            LoginRequeteSecure requete = new LoginRequeteSecure(usernameField.getText(),password,publicKey);
             oos.writeObject(requete);
             LoginResponseSecure reponse = (LoginResponseSecure) ois.readObject();
             if(reponse.isValide()) {
-                //sessionKey = reponse.getSessionKey();
+                byte[] cleSessionDecryptee = CryptData.DecryptAsymRSA(privateKey,reponse.getData());
+                sessionKey = new SecretKeySpec(cleSessionDecryptee,"DES");
                 System.out.println("Clé de session récupérer !");
                 return true;
             }
@@ -543,19 +563,6 @@ public class ClientPaiementUI extends JFrame {
         } catch (IOException | ClassNotFoundException ex) {
             throw new RuntimeException(ex);
         }
-    }
-    private SecretKey generateSessionKey(){
-        KeyGenerator cleGen = null;
-        Security.addProvider(new BouncyCastleProvider());
-        try {
-            cleGen = KeyGenerator.getInstance("DES","BC");
-
-        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            throw new RuntimeException(e);
-        }
-        cleGen.init(new SecureRandom());
-        SecretKey sessionKey = cleGen.generateKey();
-        return sessionKey;
     }
     private void dialogSecureChoice(JFrame parent) {
         JDialog dialog = new JDialog(parent, "Choice version", true);

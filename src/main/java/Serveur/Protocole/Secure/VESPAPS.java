@@ -6,6 +6,7 @@ import Serveur.Protocole.*;
 import Serveur.Protocole.UnSecure.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
@@ -26,6 +27,7 @@ public class VESPAPS implements Protocole {
     private HashMap<String,Socket> clientsConnectes;
     private Logger logger;
     private SecretKey sessionKey;
+    private PublicKey publicKey;
 
 
     public VESPAPS(Logger log){
@@ -49,19 +51,15 @@ public class VESPAPS implements Protocole {
             return TraiteRequeteFACTURESecure((FactureRequeteSecure) requete,socket);
         if(requete instanceof PayeRequeteSecure)
             return TraiteRequetePayeSecure((PayeRequeteSecure) requete,socket);
+        if(requete instanceof LogoutRequete)
+            return TraiteRequeteLOGOUT((LogoutRequete) requete,socket);
 
         return null;
     }
 
     private synchronized LoginResponseSecure TraiteRequeteSecureLOGIN(LoginRequeteSecure requete, Socket socket) throws FinConnexionException {
         logger.Trace("RequeteSecureLOGIN reçue de " );
-        System.out.println("Session key login: "+sessionKey);
-        byte[] msgDecrypt = CryptData.DecryptSymDES(sessionKey,requete.getMessage());
-        String msg = CryptData.ByteToString(msgDecrypt);
-        System.out.println("Test msg login decrypt : " + msg);
-        String [] msgSplit = msg.split(";");
-        String username = msgSplit[0];
-        String password = msgSplit[1];
+        String username = requete.getLogin();
         String usernameBd,passwordBd = null;
         String query = "select * from employes where username = '" + username+"'";
         try {
@@ -86,20 +84,22 @@ public class VESPAPS implements Protocole {
         }
 
         if (passwordBd != null) {
-            if(passwordBd.equalsIgnoreCase(password))
+            if(requete.VerifyPassword(passwordBd))
             {
                 System.out.println("Comparaison digest login -> correct");
                 String ipPortClient = socket.getInetAddress().getHostAddress() + "/" +
                         socket.getPort();
                 logger.Trace(username + " correctement loggé de " + ipPortClient);
                 clientsConnectes.put(username, socket);
-                return new LoginResponseSecure(true);
+                sessionKey = generateSessionKey();
+                publicKey = requete.getPublicKey();
+                return new LoginResponseSecure(true,sessionKey, requete.getPublicKey());
             }
         }
 
         System.out.println("Comparaison digest login -> incorrect");
         logger.Trace(username + " --> erreur de login");
-        return new LoginResponseSecure(false);
+        return new LoginResponseSecure(false,null,null);
     }
     private synchronized InitializeSessionResponse TraiteInitialize(InitializeSessionSecure requete, Socket socket) throws FinConnexionException {
         logger.Trace("Requete initialisation reçue de "+socket.getInetAddress().getHostAddress() + "/" +
@@ -112,41 +112,59 @@ public class VESPAPS implements Protocole {
     private synchronized LogoutResponse TraiteRequeteLOGOUT(LogoutRequete requete, Socket socket) throws FinConnexionException {
         logger.Trace("RequeteLOGOUT reçue de "+socket.getInetAddress().getHostAddress() + "/" +
                 socket.getPort());
-        LogoutResponse rep = new LogoutResponse(true);
 
-        return rep;
+        return new LogoutResponse(true);
     }
     private synchronized FactureResponseSecure TraiteRequeteFACTURESecure(FactureRequeteSecure requete, Socket socket) throws FinConnexionException {
         System.out.println("Requete facture secure");
         System.out.println(Arrays.toString(requete.getMsg()));
         System.out.println("Session key : "+sessionKey);
-        byte[] msgDecrypt = CryptData.DecryptSymDES(sessionKey,requete.getMsg());
-        String msg = CryptData.ByteToString(msgDecrypt);
-        logger.Trace("RequeteFacture : reception facture du client " + msg);
-        String query = "select * from factures where idClient = '" + msg+"' AND paye = '0'";
-        ArrayList<Facture> MyFactures = new ArrayList<Facture>();
+        Signature s = null;
+        boolean testSignature;
         try {
-            bean.execute(query);
-            ResultSet rs = bean.getRs();
-            if (rs != null) {
-                while (rs.next()) {
-
-                    int idFacture = rs.getInt("ID");
-                    int idClient = rs.getInt("idClient");
-                    Date sqlDate = rs.getDate("date");
-                    Double montant = rs.getDouble("montant");
-                    MyFactures.add(new Facture(idFacture,idClient,sqlDate,montant));
-                }
-            } else {
-
-                System.err.println("Le ResultSet est null. Aucun résultat trouvé.");
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
+            s = Signature.getInstance("SHA1withRSA","BC");
+            s.initVerify(publicKey);
+            String tmp = String.valueOf(requete.getIdClient());
+            s.update(tmp.getBytes());
+            testSignature = s.verify(requete.getMsg());
+        } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidKeyException | SignatureException e) {
+            throw new RuntimeException(e);
         }
-        logger.Trace(MyFactures.size() + " facture(s) recuperer avec succès");
-        return new FactureResponseSecure(MyFactures,sessionKey);
+
+        if(testSignature)
+        {
+            System.out.println("Signature validé");
+            logger.Trace("RequeteFacture : reception facture du client " + requete.getIdClient());
+            String query = "select * from factures where idClient = '" +requete.getIdClient()+"' AND paye = '0'";
+            ArrayList<Facture> MyFactures = new ArrayList<Facture>();
+            try {
+                bean.execute(query);
+                ResultSet rs = bean.getRs();
+                if (rs != null) {
+                    while (rs.next()) {
+
+                        int idFacture = rs.getInt("ID");
+                        int idClient = rs.getInt("idClient");
+                        Date sqlDate = rs.getDate("date");
+                        Double montant = rs.getDouble("montant");
+                        MyFactures.add(new Facture(idFacture,idClient,sqlDate,montant));
+                    }
+                } else {
+
+                    System.err.println("Le ResultSet est null. Aucun résultat trouvé.");
+                }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            logger.Trace(MyFactures.size() + " facture(s) recuperer avec succès");
+            return new FactureResponseSecure(MyFactures,sessionKey);
+        }
+        else
+        {
+            System.out.println("Signature pas validé");
+            return new FactureResponseSecure(new ArrayList<>(),sessionKey);
+        }
 
     }
     private synchronized PayeResponseSecure TraiteRequetePayeSecure(PayeRequeteSecure requete, Socket socket) throws FinConnexionException {
@@ -158,7 +176,7 @@ public class VESPAPS implements Protocole {
         int idFacture = Integer.parseInt(msgSplit[2]);
         System.out.println("Requete payement recu avec : "+Card + " : "+ Name+ "  "+ idFacture);
         logger.Trace("RequetePaye reçue de "+Name + " pour la facture : "+ idFacture);
-        PayeResponseSecure rep = new PayeResponseSecure(checkLuhn(Card));
+        PayeResponseSecure rep = new PayeResponseSecure(checkLuhn(Card),sessionKey);
         if(checkLuhn(Card)){
 
             logger.Trace("Paiement valide pour facture : "+idFacture);
@@ -219,6 +237,18 @@ public class VESPAPS implements Protocole {
             e.printStackTrace();
         }
         return rep;
+    }
+    private SecretKey generateSessionKey(){
+        KeyGenerator cleGen = null;
+        Security.addProvider(new BouncyCastleProvider());
+        try {
+            cleGen = KeyGenerator.getInstance("DES","BC");
+
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException(e);
+        }
+        cleGen.init(new SecureRandom());
+        return cleGen.generateKey();
     }
     public boolean checkLuhn(String cardNo)
     {

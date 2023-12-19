@@ -7,34 +7,27 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 
 public class LoginResponseSecure implements Reponse {
     private boolean valide;
-    private SecretKey sessionKey;
+    private byte[] data;
 
-    public SecretKey getSessionKey(){
-        return sessionKey;
+    public LoginResponseSecure(boolean v, SecretKey sessionKey, PublicKey publicKey){
+        valide = v;
+        if(v){
+            System.out.println("public key vespaps : "+publicKey);
+            this.data = CryptData.CryptAsymRSA(publicKey,sessionKey.getEncoded());
+        }
     }
 
-    public LoginResponseSecure(boolean v){
-        valide = v;
-        if(v)
-            sessionKey = generateSessionKey();
+    public byte[] getData() {
+        return data;
     }
 
     public boolean isValide() {
         return valide;
     }
 
-    public SecretKey generateSessionKey(){
-        try {
-            KeyGenerator keyGen = KeyGenerator.getInstance("DES","BC");
-            keyGen.init(new SecureRandom());
-            return keyGen.generateKey();
-        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            throw new RuntimeException(e);
-        }
-
-    }
 }
