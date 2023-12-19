@@ -281,40 +281,19 @@ public class ClientPaiementUI extends JFrame {
                         String Card = cardNumberField.getText().replace(" ","");
                         if(isNumeric(Card))
                         {
-                            if(Card.length() >= 8)
-                            {
+                            if(Card.length() >= 8) {
                                 int selectedRow = table.getSelectedRow();
                                 if (selectedRow != -1) {
                                     tmp = (String) table.getValueAt(selectedRow, 0);
                                     idFacture = Integer.parseInt(tmp);
                                 }
-
-                                PayeRequete requete = new PayeRequete(Card,nameField.getText(),idFacture);
-                                oos.writeObject(requete);
-                                PayeResponse reponse = (PayeResponse) ois.readObject();
-                                if(reponse.IsCardValide())
+                                if(securePort)
                                 {
-                                    createDialoge("Paiement effectué !","Paiement");
-                                    cardNumberField.setText("");
-                                    nameField.setText("");
-
-                                    FactureRequete req = new FactureRequete(idClient);
-                                    oos.writeObject(req);
-                                    FactureResponse rep = (FactureResponse) ois.readObject();
-                                    DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
-                                    tableModel.setRowCount(0);
-                                    if (rep.getTaille() != 0) {
-                                        for(int i = 0; i < rep.getTaille();i++){
-                                            Facture fac = rep.Factures.get(i);
-                                            ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
-                                        }
-                                    } else {
-                                        System.out.println("[PayementButton] Update Data Gri: Plus de facture a paye");
-                                        createDialoge("Il n'y a plus de facture a payer","Facture");
-                                    }
+                                    PayFactureSecure(Card,nameField.getText(),idFacture,idClient);
                                 }
-                                else
-                                    createDialoge("Carte invalide !","Carte");
+                                else{
+                                    PayFactureUnsecure(Card,nameField.getText(),idFacture,idClient);
+                                }
                             }
                             else{
                                 createDialoge("Carte doit comprendre 8 numero !","Carte");
@@ -375,6 +354,56 @@ public class ClientPaiementUI extends JFrame {
             }
         });
     }
+    public void PayFactureUnsecure(String card,String name,int idFacture,int idClient){
+        try{
+            PayeRequete requete = new PayeRequete(card,name,idFacture);
+            oos.writeObject(requete);
+            PayeResponse reponse = (PayeResponse) ois.readObject();
+            if(reponse.IsCardValide())
+            {
+                createDialoge("Paiement effectué !","Paiement");
+                cardNumberField.setText("");
+                nameField.setText("");
+
+                FactureRequete req = new FactureRequete(idClient);
+                oos.writeObject(req);
+                FactureResponse rep = (FactureResponse) ois.readObject();
+                DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                tableModel.setRowCount(0);
+                if (rep.getTaille() != 0) {
+                    for(int i = 0; i < rep.getTaille();i++){
+                        Facture fac = rep.Factures.get(i);
+                        ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
+                    }
+                } else {
+                    System.out.println("[PayementButton] Update Data Gri: Plus de facture a paye");
+                    createDialoge("Il n'y a plus de facture a payer","Facture");
+                }
+            }
+            else
+                createDialoge("Carte invalide !","Carte");
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public void PayFactureSecure(String card,String name,int idFacture,int idClient){
+        try{
+            System.out.println("Envoie requete paye");
+            PayeRequeteSecure requete = new PayeRequeteSecure(card,name,idFacture,sessionKey);
+            oos.writeObject(requete);
+            PayeResponseSecure reponse = (PayeResponseSecure) ois.readObject();
+            System.out.println("Reception reponse paye : "+reponse.isValide());
+            if(reponse.isValide())
+            {
+                createDialoge("Paiement effectué !","Paiement");
+                cardNumberField.setText("");
+                nameField.setText("");
+                GetFactureSecure(idClient);
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
     public void GetFactureSecure(int id){
         try {
             System.out.println("Session key : "+sessionKey);
@@ -393,6 +422,8 @@ public class ClientPaiementUI extends JFrame {
             }
             else
             {
+                DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                tableModel.setRowCount(0);
                 for(String fac : SplitFact){
                     System.out.println("String for boucle : "+ fac);
                     String [] OneFacture = fac.split(";");
@@ -409,6 +440,8 @@ public class ClientPaiementUI extends JFrame {
             oos.writeObject(requete);
             FactureResponse reponse = (FactureResponse) ois.readObject();
             if (reponse.getTaille() != 0) {
+                DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
+                tableModel.setRowCount(0);
                 System.out.println("[ActualiserButton] Il y a " + reponse.getTaille()+ " Facture impayé");
                 for(int i = 0; i < reponse.getTaille();i++){
                     Facture fac = reponse.Factures.get(i);

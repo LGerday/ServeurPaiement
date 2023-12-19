@@ -47,6 +47,8 @@ public class VESPAPS implements Protocole {
             return TraiteInitialize((InitializeSessionSecure) requete, socket);
         if(requete instanceof FactureRequeteSecure)
             return TraiteRequeteFACTURESecure((FactureRequeteSecure) requete,socket);
+        if(requete instanceof PayeRequeteSecure)
+            return TraiteRequetePayeSecure((PayeRequeteSecure) requete,socket);
 
         return null;
     }
@@ -147,13 +149,20 @@ public class VESPAPS implements Protocole {
         return new FactureResponseSecure(MyFactures,sessionKey);
 
     }
-    private synchronized PayeResponse TraiteRequetePaye(PayeRequete requete, Socket socket) throws FinConnexionException {
-        logger.Trace("RequetePaye reçue de "+requete.getName() + " pour la facture : "+ requete.getFacture());
-        PayeResponse rep = new PayeResponse(checkLuhn(requete.getCardNumber()));
-        if(checkLuhn(requete.getCardNumber())){
-            rep.setCardError("Carte Valide");
-            logger.Trace("Paiement valide pour facture : "+requete.getFacture());
-            String query = "update factures set paye = '1' WHERE ID = '"+requete.getFacture()+"'";
+    private synchronized PayeResponseSecure TraiteRequetePayeSecure(PayeRequeteSecure requete, Socket socket) throws FinConnexionException {
+        byte[] msgDecrypt = CryptData.DecryptSymDES(sessionKey,requete.getData());
+        String msg = CryptData.ByteToString(msgDecrypt);
+        String[] msgSplit = msg.split(";");
+        String Card = msgSplit[0];
+        String Name = msgSplit[1];
+        int idFacture = Integer.parseInt(msgSplit[2]);
+        System.out.println("Requete payement recu avec : "+Card + " : "+ Name+ "  "+ idFacture);
+        logger.Trace("RequetePaye reçue de "+Name + " pour la facture : "+ idFacture);
+        PayeResponseSecure rep = new PayeResponseSecure(checkLuhn(Card));
+        if(checkLuhn(Card)){
+
+            logger.Trace("Paiement valide pour facture : "+idFacture);
+            String query = "update factures set paye = '1' WHERE ID = '"+idFacture+"'";
             try{
                 bean.execute(query);
             }
@@ -163,8 +172,7 @@ public class VESPAPS implements Protocole {
             }
         }
         else {
-            logger.Trace("Paiement invalide pour facture : "+requete.getFacture());
-            rep.setCardError("Numero de carte invalide");
+            logger.Trace("Paiement invalide pour facture : "+idFacture);
         }
         return rep;
     }
