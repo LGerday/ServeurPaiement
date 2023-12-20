@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Produits</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="update-panel">
+            <h2>Modifier Produit</h2>
+            <input type="text" id="productId" placeholder="ID du Produit"><br>
+            <input type="text" id="productName" placeholder="Nouveau Nom" readonly><br>
+            <input type="number" id="productPrice" placeholder="Nouveau Prix"><br>
+            <input type="number" id="productStock" placeholder="Nouveau Stock"><br>
+            <button id="updateButton">Mettre à Jour</button>
+        </div>
+
+
+        <div class="products-container">
+            <h1>Liste des Produits</h1>
+            <table id="articleTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nom</th>
+                        <th>Prix</th>
+                        <th>Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="products-table-body">
+                    <!-- Contenu du tableau généré dynamiquement -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>
