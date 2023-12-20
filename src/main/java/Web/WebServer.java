@@ -15,6 +15,7 @@ public class WebServer {
             serveur.createContext("/",new HandlerHtml());
             serveur.createContext("/css",new HandlerCss());
             serveur.createContext("/js",new HandlerJs());
+            serveur.createContext("/images",new HandlerImg());
             System.out.println("Demarrage du serveur HTTP...");
             serveur.start();
         }

@@ -3,17 +3,24 @@
     console.log("Ceci est une fonction auto-exécutante !");
     miseAJourTable();
 })();
+
 document.getElementById('updateButton').addEventListener('click', function(e) {
     var id = document.getElementById('productId').value;
     var stock = document.getElementById('productStock').value;
     var price = document.getElementById('productPrice').value;
-    var xhr = new XMLHttpRequest();
-    var url = "http://127.0.0.1:8081/api/article?id=" + id + "&stock=" + stock + "&prix=" + price;
-    xhr.open("POST", url, true);
-    xhr.responseType = "text";
-    xhr.send();
-    miseAJourTable();
-    console.log(e);
+    if(!isNaN(price) && !isNaN(stock) && Number.isInteger(stock)){
+        console.log("test valeur true")
+        var xhr = new XMLHttpRequest();
+        var url = "http://127.0.0.1:8081/api/article?id=" + id + "&stock=" + stock + "&prix=" + price;
+        xhr.open("POST", url, true);
+        xhr.responseType = "text";
+        xhr.send();
+        miseAJourTable();
+        console.log(e);
+    }
+    else
+        alert("Input incorrect");
+
 });
 
 function videTable()
@@ -23,6 +30,7 @@ function videTable()
         maTable.deleteRow(-1);
     }
 }
+let oldrow;
 function ajouteLigne(id, intitule, stock, prix) {
     var maTable = document.getElementById("articleTable");
     var nouvelleLigne = document.createElement("tr");
@@ -45,6 +53,33 @@ function ajouteLigne(id, intitule, stock, prix) {
     nouvelleLigne.appendChild(celluleStock);
 
     maTable.querySelector("tbody").appendChild(nouvelleLigne);
+    nouvelleLigne.addEventListener('click', function() {
+        if(oldrow)
+            oldrow.classList.remove('highlighted')
+
+
+        nouvelleLigne.classList.add('highlighted');
+        oldrow = nouvelleLigne;
+        selectRow(id,intitule,prix,stock);
+    });
+}
+
+function selectRow(id,intitule,prix,stock){
+    const productIdInput = document.getElementById('productId');
+    const productNameInput = document.getElementById('productName');
+    const productPriceInput = document.getElementById('productPrice');
+    const productStockInput = document.getElementById('productStock');
+    const productImage = document.getElementById('productImage');
+    if(intitule === "pommes de terre")
+        productImage.src = '/images/pommesdeterre.jpg';
+    else
+        productImage.src = '/images/'+intitule+'.jpg';
+    console.log(productImage.src);
+    productIdInput.value = id;
+    productNameInput.value = intitule;
+    productPriceInput.value = prix;
+    productStockInput.value = stock;
+
 }
 function miseAJourTable() {
     var xhr = new XMLHttpRequest();
