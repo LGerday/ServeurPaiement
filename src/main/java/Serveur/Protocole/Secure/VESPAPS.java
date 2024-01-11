@@ -45,14 +45,16 @@ public class VESPAPS implements Protocole {
     public Reponse TraiteRequete(Requete requete, Socket socket) throws FinConnexionException {
         if (requete instanceof LoginRequeteSecure)
             return TraiteRequeteSecureLOGIN((LoginRequeteSecure) requete, socket);
-        if (requete instanceof InitializeSessionSecure)
-            return TraiteInitialize((InitializeSessionSecure) requete, socket);
+       /* if (requete instanceof InitializeSessionSecure)
+            return TraiteInitialize((InitializeSessionSecure) requete, socket);*/
         if(requete instanceof FactureRequeteSecure)
             return TraiteRequeteFACTURESecure((FactureRequeteSecure) requete,socket);
         if(requete instanceof PayeRequeteSecure)
             return TraiteRequetePayeSecure((PayeRequeteSecure) requete,socket);
         if(requete instanceof LogoutRequete)
             return TraiteRequeteLOGOUT((LogoutRequete) requete,socket);
+        if(requete instanceof ArticleRequete)
+            return TraiteRequeteArticle((ArticleRequete) requete,socket);
 
         return null;
     }
@@ -64,18 +66,14 @@ public class VESPAPS implements Protocole {
         String query = "select * from employes where username = '" + username+"'";
         try {
             bean.execute(query);
-
-            // Récupère le ResultSet et affiche les résultats
             ResultSet rs = bean.getRs();
             if (rs != null) {
                 while (rs.next()) {
-                    // Récupère les colonnes par leur nom (ajuste les noms selon ta structure de base de données)
                     int id = rs.getInt("id");
                     usernameBd = rs.getString("username");
                     passwordBd = rs.getString("password");
                 }
             } else {
-                // Gère le cas où rs est null
                 System.err.println("Le ResultSet est null. Aucun résultat trouvé.");
             }
 
@@ -101,14 +99,14 @@ public class VESPAPS implements Protocole {
         logger.Trace(username + " --> erreur de login");
         return new LoginResponseSecure(false,null,null);
     }
-    private synchronized InitializeSessionResponse TraiteInitialize(InitializeSessionSecure requete, Socket socket) throws FinConnexionException {
+    /*private synchronized InitializeSessionResponse TraiteInitialize(InitializeSessionSecure requete, Socket socket) throws FinConnexionException {
         logger.Trace("Requete initialisation reçue de "+socket.getInetAddress().getHostAddress() + "/" +
                 socket.getPort());
         byte[] cleSessionDecryptee = CryptData.DecryptAsymRSA(CryptData.RecupereClePriveeServeur(),requete.getSessionKeyCrypt());
         sessionKey = new SecretKeySpec(cleSessionDecryptee,"DES");
         return new InitializeSessionResponse(true);
 
-    }
+    }*/
     private synchronized LogoutResponse TraiteRequeteLOGOUT(LogoutRequete requete, Socket socket) throws FinConnexionException {
         logger.Trace("RequeteLOGOUT reçue de "+socket.getInetAddress().getHostAddress() + "/" +
                 socket.getPort());
@@ -117,8 +115,6 @@ public class VESPAPS implements Protocole {
     }
     private synchronized FactureResponseSecure TraiteRequeteFACTURESecure(FactureRequeteSecure requete, Socket socket) throws FinConnexionException {
         System.out.println("Requete facture secure");
-        System.out.println(Arrays.toString(requete.getMsg()));
-        System.out.println("Session key : "+sessionKey);
         Signature s = null;
         boolean testSignature;
         try {
@@ -214,13 +210,12 @@ public class VESPAPS implements Protocole {
                     ResultSet rs2 = bean.getRs();
                     if (rs2 != null) {
                         while (rs2.next()) {
-                            // Récupère les colonnes par leur nom (ajuste les noms selon ta structure de base de données)
+
                             name = rs2.getString("intitule");
                             price = rs2.getDouble("prix");
-                            System.out.println("Requete article : "+name + " "+ price);
                         }
                     } else {
-                        // Gère le cas où rs est null
+
                         System.err.println("Le ResultSet est null. Aucun résultat trouvé.");
                     }
 
@@ -264,9 +259,6 @@ public class VESPAPS implements Protocole {
             if (isSecond)
                 d = d * 2;
 
-            // We add two digits to handle
-            // cases that make two digits
-            // after doubling
             nSum += d / 10;
             nSum += d % 10;
 

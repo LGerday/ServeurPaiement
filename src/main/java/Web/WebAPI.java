@@ -41,21 +41,25 @@ public class WebAPI {
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
             exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
             String requestMethod = exchange.getRequestMethod();
+            // task methode GET
             if (requestMethod.equalsIgnoreCase("GET"))
             {
                 System.out.println("--- Requête GET reçue (obtenir la liste) ---");
-                // Récupérer la liste des tâches au format JSON
+                // récupération des articles
                 myArticles = loadArticleFromBD();
                 String response = convertArticleToJson();
+                // envoie de la réponse
                 sendResponse(exchange, 200, response);
             }
+            //task methode POST
             else if (requestMethod.equalsIgnoreCase("POST"))
             {
                 System.out.println("--- Requête POST reçue (ajout) ---");
-                // Ajouter une nouvelle tâche
+
                 String requestBody = exchange.getRequestURI().getQuery();
-                System.out.println("requestNody = " + requestBody);
+                System.out.println("requestBody = " + requestBody);
                 Map<String, String> params = new HashMap<>();
+                // Récupération des paramètre
                 String[] pairs = requestBody.split("&");
                 for (String pair : pairs) {
                     String[] keyValue = pair.split("=");
@@ -70,8 +74,11 @@ public class WebAPI {
                 String id = params.get("id");
                 String stock = params.get("stock");
                 String price = params.get("prix");
+                // update de l'article dans l'arrayList
                 updateArticle(Integer.parseInt(id),Double.parseDouble(price),Integer.parseInt(stock));
+                //update de l'article dans la BD
                 updateDB(Integer.parseInt(id),Double.parseDouble(price),Integer.parseInt(stock));
+                //envoie de la réponse
                 sendResponse(exchange, 201, "Oui");
             }
             else sendResponse(exchange, 405, "Methode non autorisee");

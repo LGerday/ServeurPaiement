@@ -54,17 +54,19 @@ public class ClientPaiementUI extends JFrame {
         int port;
         Security.addProvider(new BouncyCastleProvider());
         KeyPairGenerator keyGen = null;
+        // Generation pair de clé client
         try {
             keyGen = KeyPairGenerator.getInstance("RSA","BC");
             keyGen.initialize(512,new SecureRandom());
             KeyPair keyPair = keyGen.generateKeyPair();
             publicKey = keyPair.getPublic();
             privateKey = keyPair.getPrivate();
-            System.out.println("Public : "+ publicKey);
-            System.out.println("Private : "+ privateKey);
+            System.out.println("Client <: Public and Private key generate !");
+
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
             throw new RuntimeException(e);
         }
+        // choix du port selon la checkbox
         if(securePort)
             port = 50001;
         else
@@ -95,7 +97,7 @@ public class ClientPaiementUI extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                // Code à exécuter lors de la fermeture de la fenêtre
+
                 System.out.println("[Close Client] Fermeture Flux & Socket");
                 try{
                     ois.close();
@@ -104,7 +106,7 @@ public class ClientPaiementUI extends JFrame {
                 } catch (IOException ex) {
                     throw new RuntimeException(ex);
                 }
-                System.exit(0); // Fermer l'application (à ajuster selon vos besoins)
+                System.exit(0);
             }
         });
         logoutButton.addActionListener(new ActionListener() {
@@ -167,7 +169,6 @@ public class ClientPaiementUI extends JFrame {
 
 
 
-        // Id, carte et nom de carte
         JPanel idPanel = new JPanel();
         idPanel.setLayout(new FlowLayout());
         JLabel idLabel = new JLabel("Id: ");
@@ -229,8 +230,6 @@ public class ClientPaiementUI extends JFrame {
 
 
 
-
-        // Datagrid pour afficher des données comprenant (IdFacture,date,montant)
         JPanel tablePanel = new JPanel(new BorderLayout());
 
         DefaultTableModel tableModel = new DefaultTableModel();
@@ -246,11 +245,11 @@ public class ClientPaiementUI extends JFrame {
         tablePanel.add(scrollPane, BorderLayout.CENTER);
         add(tablePanel);
 
-        // Possibilité de selectionner un element du datagrid
+
         ListSelectionModel listSelectionModel = table.getSelectionModel();
         listSelectionModel.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        // Bouton payement
+
         JPanel paymentPanel = new JPanel();
         paymentPanel.setLayout(new FlowLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -282,7 +281,6 @@ public class ClientPaiementUI extends JFrame {
         paymentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Ajoute le code pour effectuer le paiement ici
                 System.out.println("[PayementButton] press");
                 String tmp;
                 int idFacture = -1;
@@ -389,7 +387,7 @@ public class ClientPaiementUI extends JFrame {
                         ajouterFactureDataGrid(fac.getIdFacture(),fac.getId(),fac.getDate(),fac.getMontant());
                     }
                 } else {
-                    System.out.println("[PayementButton] Update Data Gri: Plus de facture a paye");
+                    System.out.println("[PayementButton] Update Data Grid: Plus de facture a paye");
                     createDialoge("Il n'y a plus de facture a payer","Facture");
                 }
             }
@@ -401,7 +399,7 @@ public class ClientPaiementUI extends JFrame {
     }
     public void PayFactureSecure(String card,String name,int idFacture,int idClient){
         try{
-            System.out.println("Envoie requete paye");
+            System.out.println("Client <: Envoie PayFactureSecure");
             PayeRequeteSecure requete = new PayeRequeteSecure(card,name,idFacture,sessionKey);
             oos.writeObject(requete);
             PayeResponseSecure reponse = (PayeResponseSecure) ois.readObject();
@@ -433,16 +431,13 @@ public class ClientPaiementUI extends JFrame {
     }
     public void GetFactureSecure(int id){
         try {
-            System.out.println("Session key : "+sessionKey);
+            System.out.println("Client <: Envoie GetFactureSecure");
             FactureRequeteSecure requete = new FactureRequeteSecure(sessionKey,id,privateKey);
-            System.out.println(Arrays.toString(requete.getMsg()));
             oos.writeObject(requete);
             FactureResponseSecure reponse = (FactureResponseSecure) ois.readObject();
             byte[] msg = CryptData.DecryptSymDES(sessionKey,reponse.getMsg());
             String listFact = CryptData.ByteToString(msg);
-            System.out.println("msg recu : "+listFact);
             String []SplitFact = listFact.split("\\$");
-            System.out.println("Taille string getfacture reponse"+SplitFact.length);
             if(SplitFact[0].equalsIgnoreCase("nothing"))
             {
                 createDialoge("Aucune facture impayé","Facture");
@@ -452,7 +447,6 @@ public class ClientPaiementUI extends JFrame {
                 DefaultTableModel tableModel = (DefaultTableModel) table.getModel();
                 tableModel.setRowCount(0);
                 for(String fac : SplitFact){
-                    System.out.println("String for boucle : "+ fac);
                     String [] OneFacture = fac.split(";");
                     ajouterFactureDataGrid(OneFacture[0],OneFacture[1],Date.valueOf(OneFacture[2]),Double.parseDouble(OneFacture[3]));
                 }
@@ -509,8 +503,6 @@ public class ClientPaiementUI extends JFrame {
             tableModel.addColumn("IdClient");
             tableModel.addColumn("Date");
             tableModel.addColumn("Montant");
-
-            // Met à jour l'affichage
             table.updateUI();
         }
         else {
@@ -519,8 +511,6 @@ public class ClientPaiementUI extends JFrame {
             tableModel.addColumn("Quantité");
             tableModel.addColumn("Prix");
             tableModel.addColumn("Prix Total");
-
-            // Met à jour l'affichage
             table.updateUI();
         }
     }
@@ -550,12 +540,13 @@ public class ClientPaiementUI extends JFrame {
             char[] passwordChars = passwordField.getPassword();
             String password = new String(passwordChars);
             LoginRequeteSecure requete = new LoginRequeteSecure(usernameField.getText(),password,publicKey);
+            System.out.println("Client <: Envoie LoginSecure");
             oos.writeObject(requete);
             LoginResponseSecure reponse = (LoginResponseSecure) ois.readObject();
             if(reponse.isValide()) {
                 byte[] cleSessionDecryptee = CryptData.DecryptAsymRSA(privateKey,reponse.getData());
                 sessionKey = new SecretKeySpec(cleSessionDecryptee,"DES");
-                System.out.println("Clé de session récupérer !");
+                System.out.println("Client <: Succes du login, Clé de session partagé !");
                 return true;
             }
             else
@@ -576,7 +567,6 @@ public class ClientPaiementUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 boolean isChecked = checkBox.isSelected();
-                // Use isChecked value as needed
                 if(checkBox.isSelected())
                 {
                     System.out.println("Checkbox is checked: " + isChecked);
@@ -587,7 +577,7 @@ public class ClientPaiementUI extends JFrame {
                     System.out.println("Checkbox is not checked: " + isChecked);
                     securePort = false;
                 }
-                dialog.dispose(); // Close the dialog
+                dialog.dispose();
             }
         });
 
