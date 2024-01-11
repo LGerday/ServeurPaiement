@@ -8,7 +8,7 @@ document.getElementById('updateButton').addEventListener('click', function(e) {
     var id = document.getElementById('productId').value;
     var stock = document.getElementById('productStock').value;
     var price = document.getElementById('productPrice').value;
-    if(!isNaN(price) && !isNaN(stock) && Number.isInteger(stock)){
+    if(!isNaN(price) && !isNaN(stock) && Number.isInteger(parseFloat(stock))){
         console.log("test valeur true")
         var xhr = new XMLHttpRequest();
         var url = "http://127.0.0.1:8081/api/article?id=" + id + "&stock=" + stock + "&prix=" + price;
